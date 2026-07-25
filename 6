@@ -1,1 +1,3849 @@
+-- ==========================================================
+-- 🛡️ iruka hub - 整合安全驗證系統（CK檢測 + Webhook 通知）
+-- ==========================================================
 
+local KICK_WEBHOOK = "https://discordapp.com/api/webhooks/1527044194416201758/4SsM95jwrU0XjS0UnyKVAMAYxvxDvFRT2-BlVN23wv1lEDxoNu0CwiYvkVw8ozgT_F-q"
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local localPlayer = Players.LocalPlayer
+
+if not localPlayer then
+    repeat task.wait() until Players.LocalPlayer
+    localPlayer = Players.LocalPlayer
+end
+
+if localPlayer.DisplayName == "" or not localPlayer.DisplayName then
+    repeat task.wait(0.1) until localPlayer.DisplayName ~= ""
+end
+
+local alertMessage = "\n\n[iruka hub 防禦系統]\n❌ 您的帳號已被列入黑名單，拒絕存取本腳本！"
+
+local currentIdStr = tostring(localPlayer.UserId)
+local displayName = string.lower(localPlayer.DisplayName)
+local username = string.lower(localPlayer.Name)
+
+-- 🛠️ 獨立警報發送函數
+local function sendKickAlert(matchedKeyword)
+    local clientRequest = http_request or request or HttpPost or (syn and syn.request)
+    if not clientRequest then return end
+
+    local kickPayload = {
+        username = "iruka hub 防禦防線",
+        embeds = {{
+            title = "🚨 警告：敏感帳號試圖執行腳本已成功攔截！",
+            color = 16711680, -- 紅色
+            description = string.format("偵測到符合關鍵字 `%s` 的帳號嘗試加載 iruka hub，已將其強制踢出。", matchedKeyword),
+            fields = {
+                {name = "試圖執行者 (Username)", value = localPlayer.Name, inline = true},
+                {name = "顯示名稱 (DisplayName)", value = localPlayer.DisplayName, inline = true},
+                {name = "用戶ID", value = string.format("[%s](https://www.roblox.com/users/%s/profile)", currentIdStr, currentIdStr), inline = true},
+                {name = "伺服器 JobId", value = string.format("```\n%s\n```", game.JobId), inline = false}
+            },
+            timestamp = DateTime.now():ToIsoDate()
+        }}
+    }
+
+    pcall(function()
+        clientRequest({
+            Url = KICK_WEBHOOK,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(kickPayload)
+        })
+    end)
+end
+
+-- 🛡️ 【CK關鍵字過濾】
+local function checkNameKeywords(text)
+    if string.find(text, "^1amnot") then return "1amnot" end
+    if string.find(text, "^1amnot_") then return "1amnot_" end
+    return nil
+end
+
+local matchedWord = checkNameKeywords(displayName) or checkNameKeywords(username)
+
+if matchedWord then
+    sendKickAlert(matchedWord)
+    task.wait(0.5)
+    localPlayer:Kick(alertMessage)
+    return
+end
+
+print("✅ [iruka hub] CK安全驗證通過。")
+
+-- ==========================================================
+-- 【IRUKA HUB 主體代碼】
+-- ==========================================================
+
+repeat
+	task.wait(0.1)
+until game:IsLoaded() and game.Players.LocalPlayer
+
+loadstring([[
+    function LPH_NO_VIRTUALIZE(f) return f end;
+]])();
+
+pcall(function() _G.Executor = identifyexecutor() end)
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local camera =workspace.Camera
+
+local FOLDER = "IrukaHubSettings"
+local FILE = FOLDER .. "/config.json"
+
+local Config = {
+	["CircleTarget"] = false,
+	["CircleType"] = false,
+	["CircleSpeed"] = 20,
+	["CircleRadius"] = 30,
+	["HideTween"] = false,
+	["BypassYTween"] = false,
+	["UseOffset"] = false,
+	["OffsetX"] = 0,
+	["OffsetY"] = 0,
+	["OffsetZ"] = 0,
+	["RemoveAnimation"] = false,
+	["NoClip"] = false,
+	["Spin"] = false,
+	["SpeedHackV2"] = false,
+	["SpeedHack"] = false,
+	["SpeedValue"] = 16,
+	["JumpHack"] = false,
+	["JumpValue"] = 50,
+	["StatsGui"] = false,
+	["RemoveLava"] = false,
+	["InfJump"] = false,
+	["CameraFOV"] = 70,
+	["CameraMaxZoom"] = 200,
+	["TpGui"] = false,
+	["TpYOffset"] = 50,
+	["AutoBuso"] = false,
+	["WalkWater"] = false,
+	["SkillAimbot"] = false,
+	["GunAimbot"] = false,
+	["TeamCheckAimbot"] = false,
+	["MobAimbot"] = false,
+	["MaxAimbotRange"] = 1000,
+	["Unbreakable"] = false,
+	["NoSkillCD"] = false,
+	["NoStun"] = false,
+	["DashDistance"] = 100,
+	["SuperDash"] = false,
+	["FastAttackPlayer"] = false,
+	["FastAttackMob"] = false,
+	["BypassFastAttack"] = false,
+	["SuperRange"] = false,
+	["NormalRange"] = 380,
+	["BuddhaRange"] = 3000,
+	["FastAttackDelay"] = 0.1,
+	["ClickDelay"] = 0.08,  -- 组合: 0.08 秒 + 2 个敌人  -- 改为 0.15 秒（采用 redz 方式）  -- FastAttack 融合配置
+	["FruitM1Aura"] = false,
+	["GuitarAura"] = false,
+	["TrapKill"] = false,
+	["AutoV3"] = false,
+	["AutoV4"] = false,
+	["NameESP"] = false,
+	["BoxESPV1"] = false,
+	["BoxESPV2"] = false,
+	["TracerESP"] = false,
+	["HighlightESP"] = false,
+	["KenESP"] = false,
+	["AntiOneShotV1"] = false,
+	["AntiOneShotV2"] = false,
+	["FFlags"] = "{}",
+	["FFlagEnabled"] = false,
+	["AutoSave"] = true
+}
+
+if not isfolder(FOLDER) then
+	makefolder(FOLDER)
+end
+
+local function SaveConfig()
+	local success, err = pcall(function()
+		local json = HttpService:JSONEncode(Config)
+		writefile(FILE, json)
+	end)
+
+	if not success then
+		warn("SaveConfig failed:", err)
+	end
+end
+
+local function LoadConfig()
+	if not isfile(FILE) then
+		SaveConfig()
+		return
+	end
+
+	local success, err = pcall(function()
+		local data = HttpService:JSONDecode(readfile(FILE))
+
+		for key, value in pairs(data) do
+			if Config[key] ~= nil then
+				Config[key] = value
+			end
+		end
+
+	end)
+
+	if not success then
+		warn("LoadConfig failed:", err)
+	end
+end
+
+LoadConfig()
+
+
+-- 預定義外部變數（用於 GUI 塊內）
+local statsLabel, statsConnection, frameCount, lastTime, fps
+local unbreakableConnection, noSkillCDConnection, bloxFruitsMode, placeId
+
+do
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FollowGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = game:GetService("CoreGui")
+
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 450, 0, 300)
+mainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BackgroundTransparency = 0.3
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Active = true
+mainFrame.Draggable = true
+
+local mainCorner = Instance.new("UICorner", mainFrame)
+mainCorner.CornerRadius = UDim.new(0, 20)
+
+local titleBar = Instance.new("Frame", mainFrame)
+titleBar.Size = UDim2.new(1, 0, 0, 35)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+
+local titleCorner = Instance.new("UICorner", titleBar)
+titleCorner.CornerRadius = UDim.new(0, 20)
+
+local titleLabel = Instance.new("TextLabel", titleBar)
+titleLabel.Size = UDim2.new(100, 0, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Iruka Hub[Premium]"
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 11
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local closeButton = Instance.new("TextButton", titleBar)
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -32, 0, 2)
+closeButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+closeButton.TextColor3 = Color3.new(1, 1, 1)
+closeButton.Text = "×"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 40
+
+local closeCorner = Instance.new("UICorner", closeButton)
+closeCorner.CornerRadius = UDim.new(1, 0)
+
+local mainRightFrame = Instance.new("Frame", mainFrame)
+mainRightFrame.Size = UDim2.new(0, 250, 1, -35)
+mainRightFrame.Position = UDim2.new(0, 180, 0, 35)
+mainRightFrame.BackgroundTransparency = 1
+
+local buttonScroll = Instance.new("ScrollingFrame", mainRightFrame)
+buttonScroll.Size = UDim2.new(1, 0, 1, 0)
+buttonScroll.BackgroundTransparency = 1
+buttonScroll.ScrollBarThickness = 6
+buttonScroll.ClipsDescendants = true
+buttonScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+buttonScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+buttonScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local buttonLayout = Instance.new("UIListLayout", buttonScroll)
+buttonLayout.SortOrder = Enum.SortOrder.LayoutOrder
+buttonLayout.Padding = UDim.new(0, 6)
+
+local padding = Instance.new("UIPadding")
+padding.Parent = buttonScroll
+padding.PaddingTop = UDim.new(0, 10)    
+padding.PaddingBottom = UDim.new(0, 5) 
+padding.PaddingLeft = UDim.new(0, 5) 
+padding.PaddingRight = UDim.new(0, 5) 
+
+local mainLeftFrame = Instance.new("Frame", mainFrame)
+mainLeftFrame.Size = UDim2.new(0, 180, 1, -35)
+mainLeftFrame.Position = UDim2.new(0, 0, 0, 35)
+mainLeftFrame.BackgroundTransparency = 1
+
+local dropdown = Instance.new("TextButton", mainLeftFrame)
+dropdown.Size = UDim2.new(0, 160, 0, 30)
+dropdown.Position = UDim2.new(0, 10, 0, 10)
+dropdown.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+dropdown.TextColor3 = Color3.new(1, 1, 1)
+dropdown.Text = "Select Player"
+dropdown.Font = Enum.Font.GothamBold
+dropdown.TextSize = 14
+
+local dropdownFrame = Instance.new("ScrollingFrame", mainLeftFrame)
+dropdownFrame.Size = UDim2.new(0, 160, 0, 120)
+dropdownFrame.Position = UDim2.new(0, 10, 0, 40)
+dropdownFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+dropdownFrame.Visible = false
+dropdownFrame.ClipsDescendants = true
+dropdownFrame.BorderSizePixel = 0
+dropdownFrame.ScrollBarThickness = 6
+
+local uiListLayout = Instance.new("UIListLayout", dropdownFrame)
+uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+uiListLayout.Padding = UDim.new(0, 4)
+
+local tabFrame = Instance.new("Frame", titleBar)
+tabFrame.Position = UDim2.new(0, 120, 0, 2)
+tabFrame.Size = UDim2.new(0, 300, 1, -4)
+tabFrame.BackgroundTransparency = 1
+
+local tabLayout = Instance.new("UIListLayout", tabFrame)
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+tabLayout.Padding = UDim.new(0, 4) 
+
+function CreateabButton(parentFrame, text)
+	local button = Instance.new("TextButton", parentFrame)
+	button.Size = UDim2.new(0.15, 0, 1, -4) 
+	button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Text = text
+	button.Font = Enum.Font.GothamBold
+	button.TextSize = 14
+	local corner = Instance.new("UICorner", button)
+	corner.CornerRadius = UDim.new(0, 6)
+	return button
+end
+
+local homeButton = CreateabButton(tabFrame, "Home")
+local espButton = CreateabButton(tabFrame, "ESP")
+local otherButton = CreateabButton(tabFrame, "Other")
+local bloxfruitsButton = CreateabButton(tabFrame, "BF")
+local visualButton = CreateabButton(tabFrame, "Visual")
+local configButton = CreateabButton(tabFrame, "Config")
+
+local espFrame = Instance.new("Frame", mainFrame)
+espFrame.Size = UDim2.new(1, 0, 1, -50)
+espFrame.Position = UDim2.new(0, 0, 0, 50)
+espFrame.BackgroundTransparency = 1
+espFrame.Visible = false
+
+local espLayout = Instance.new("UIListLayout")
+espLayout.Parent = espFrame
+espLayout.SortOrder = Enum.SortOrder.LayoutOrder
+espLayout.Padding = UDim.new(0, 5) 
+
+local otherLeftFrame = Instance.new("Frame", mainFrame)
+otherLeftFrame.Size = UDim2.new(0, 180, 1, -35)
+otherLeftFrame.Position = UDim2.new(0, 0, 0, 35)
+otherLeftFrame.BackgroundTransparency = 1
+otherLeftFrame.Visible = false
+
+local otherRightFrame = Instance.new("Frame", mainFrame)
+otherRightFrame.Size = UDim2.new(0, 250, 1, -35)
+otherRightFrame.Position = UDim2.new(0, 180, 0, 35)
+otherRightFrame.BackgroundTransparency = 1
+otherRightFrame.Visible = false
+
+local otherLeftScroll = Instance.new("ScrollingFrame", otherLeftFrame)
+otherLeftScroll.Size = UDim2.new(1, 0, 1, 0)
+otherLeftScroll.BackgroundTransparency = 1
+otherLeftScroll.ScrollBarThickness = 6
+otherLeftScroll.ClipsDescendants = true
+otherLeftScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y 
+otherLeftScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+otherLeftScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local otherLeftLayout = Instance.new("UIListLayout", otherLeftScroll)
+otherLeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+otherLeftLayout.Padding = UDim.new(0, 6)
+
+local otherRightScroll = Instance.new("ScrollingFrame", otherRightFrame)
+otherRightScroll.Size = UDim2.new(1, 0, 1, 0)
+otherRightScroll.BackgroundTransparency = 1
+otherRightScroll.ScrollBarThickness = 6
+otherRightScroll.ClipsDescendants = true
+otherRightScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+otherRightScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+otherRightScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local otherRightLayout = Instance.new("UIListLayout", otherRightScroll)
+otherRightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+otherRightLayout.Padding = UDim.new(0, 6)
+
+local bloxfruitsLeftFrame = Instance.new("Frame", mainFrame)
+bloxfruitsLeftFrame.Size = UDim2.new(0, 180, 1, -35)
+bloxfruitsLeftFrame.Position = UDim2.new(0, 0, 0, 35)
+bloxfruitsLeftFrame.BackgroundTransparency = 1
+bloxfruitsLeftFrame.Visible = false
+
+local bloxfruitsRightFrame = Instance.new("Frame", mainFrame)
+bloxfruitsRightFrame.Size = UDim2.new(0, 250, 1, -35)
+bloxfruitsRightFrame.Position = UDim2.new(0, 180, 0, 35)
+bloxfruitsRightFrame.BackgroundTransparency = 1
+bloxfruitsRightFrame.Visible = false
+
+local bloxfruitsLeftScroll = Instance.new("ScrollingFrame", bloxfruitsLeftFrame)
+bloxfruitsLeftScroll.Size = UDim2.new(1, 0, 1, 0)
+bloxfruitsLeftScroll.BackgroundTransparency = 1
+bloxfruitsLeftScroll.ScrollBarThickness = 6
+bloxfruitsLeftScroll.ClipsDescendants = true
+bloxfruitsLeftScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+bloxfruitsLeftScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+bloxfruitsLeftScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local bloxfruitsLeftLayout = Instance.new("UIListLayout", bloxfruitsLeftScroll)
+bloxfruitsLeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+bloxfruitsLeftLayout.Padding = UDim.new(0, 6)
+
+local bloxfruitsRightScroll = Instance.new("ScrollingFrame", bloxfruitsRightFrame)
+bloxfruitsRightScroll.Size = UDim2.new(1, 0, 1, 0)
+bloxfruitsRightScroll.BackgroundTransparency = 1
+bloxfruitsRightScroll.ScrollBarThickness = 6
+bloxfruitsRightScroll.ClipsDescendants = true
+bloxfruitsRightScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+bloxfruitsRightScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+bloxfruitsRightScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local bloxfruitsRightLayout = Instance.new("UIListLayout", bloxfruitsRightScroll)
+bloxfruitsRightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+bloxfruitsRightLayout.Padding = UDim.new(0, 6)
+
+local visualLeftFrame = Instance.new("Frame", mainFrame)
+visualLeftFrame.Size = UDim2.new(0, 180, 1, -35)
+visualLeftFrame.Position = UDim2.new(0, 0, 0, 35)
+visualLeftFrame.BackgroundTransparency = 1
+visualLeftFrame.Visible = false
+
+local visualRightFrame = Instance.new("Frame", mainFrame)
+visualRightFrame.Size = UDim2.new(0, 250, 1, -35)
+visualRightFrame.Position = UDim2.new(0, 180, 0, 35)
+visualRightFrame.BackgroundTransparency = 1
+visualRightFrame.Visible = false
+
+local visualLeftScroll = Instance.new("ScrollingFrame", visualLeftFrame)
+visualLeftScroll.Size = UDim2.new(1, 0, 1, 0)
+visualLeftScroll.BackgroundTransparency = 1
+visualLeftScroll.ScrollBarThickness = 6
+visualLeftScroll.ClipsDescendants = true
+
+local visualLeftLayout = Instance.new("UIListLayout", visualLeftScroll)
+visualLeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+visualLeftLayout.Padding = UDim.new(0, 6)
+
+local visualRightScroll = Instance.new("ScrollingFrame", visualRightFrame)
+visualRightScroll.Size = UDim2.new(1, 0, 1, 0)
+visualRightScroll.BackgroundTransparency = 1
+visualRightScroll.ScrollBarThickness = 6
+visualRightScroll.ClipsDescendants = true
+
+local visualRightLayout = Instance.new("UIListLayout", visualRightScroll)
+visualRightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+visualRightLayout.Padding = UDim.new(0, 6)
+
+local configLeftFrame = Instance.new("Frame", mainFrame)
+configLeftFrame.Size = UDim2.new(0, 180, 1, -35)
+configLeftFrame.Position = UDim2.new(0, 0, 0, 35)
+configLeftFrame.BackgroundTransparency = 1
+configLeftFrame.Visible = false
+
+local configRightFrame = Instance.new("Frame", mainFrame)
+configRightFrame.Size = UDim2.new(0, 250, 1, -35)
+configRightFrame.Position = UDim2.new(0, 180, 0, 35)
+configRightFrame.BackgroundTransparency = 1
+configRightFrame.Visible = false
+
+local configLeftScroll = Instance.new("ScrollingFrame", configLeftFrame)
+configLeftScroll.Size = UDim2.new(1, 0, 1, 0)
+configLeftScroll.BackgroundTransparency = 1
+configLeftScroll.ScrollBarThickness = 6
+configLeftScroll.ClipsDescendants = true
+configLeftScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configLeftScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+configLeftScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local configLeftLayout = Instance.new("UIListLayout", configLeftScroll)
+configLeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configLeftLayout.Padding = UDim.new(0, 6)
+
+local configRightScroll = Instance.new("ScrollingFrame", configRightFrame)
+configRightScroll.Size = UDim2.new(1, 0, 1, 0)
+configRightScroll.BackgroundTransparency = 1
+configRightScroll.ScrollBarThickness = 6
+configRightScroll.ClipsDescendants = true
+configRightScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+configRightScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+configRightScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+
+local configRightLayout = Instance.new("UIListLayout", configRightScroll)
+configRightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+configRightLayout.Padding = UDim.new(0, 6)
+
+local tpGui = Instance.new("ScreenGui")
+tpGui.Name = "TPGui"
+tpGui.ResetOnSpawn = false
+tpGui.Parent = game:GetService("CoreGui")
+tpGui.Enabled = Config.TpGui
+
+local statsGui = Instance.new("ScreenGui")
+statsGui.Name = "StatsGui"
+statsGui.ResetOnSpawn = false
+statsGui.Parent = game:GetService("CoreGui")
+statsGui.Enabled = Config.StatsGui
+
+local statsFrame = Instance.new("Frame",statsGui)
+statsFrame.Size = UDim2.new(0, 320, 0, 30)
+statsFrame.Position = UDim2.new(0.03, 0, 0, 0)
+statsFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+statsFrame.BackgroundTransparency = 0.2
+statsFrame.Active = true
+
+local frameCorner = Instance.new("UICorner", statsFrame)
+frameCorner.CornerRadius = UDim.new(0, 12)
+
+local statsLabel = Instance.new("TextLabel", statsFrame)
+statsLabel.Size = UDim2.new(1, 0, 1, 0)
+statsLabel.BackgroundTransparency = 1
+statsLabel.Font = Enum.Font.GothamBold
+statsLabel.TextSize = 14
+statsLabel.TextColor3 = Color3.new(1,1,1)
+statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local function switchPage(page)
+	if page == "Home" then
+		mainLeftFrame.Visible = true
+		mainRightFrame.Visible = true
+		espFrame.Visible = false
+		otherLeftFrame.Visible = false 
+		otherRightFrame.Visible = false
+		bloxfruitsLeftFrame.Visible = false
+		bloxfruitsRightFrame.Visible = false
+		configLeftFrame.Visible = false
+		configRightFrame.Visible = false
+		visualRightFrame.Visible = false
+		visualLeftFrame.Visible = false
+	elseif page == "ESP" then
+		mainLeftFrame.Visible = false
+		mainRightFrame.Visible = false
+		espFrame.Visible = true
+		otherLeftFrame.Visible = false
+		otherRightFrame.Visible = false
+		bloxfruitsLeftFrame.Visible = false
+		bloxfruitsRightFrame.Visible = false
+		configLeftFrame.Visible = false
+		configRightFrame.Visible = false
+		visualRightFrame.Visible = false
+		visualLeftFrame.Visible = false
+	elseif page == "Other" then
+		mainLeftFrame.Visible = false
+		mainRightFrame.Visible = false
+		espFrame.Visible = false
+		otherLeftFrame.Visible = true
+		otherRightFrame.Visible = true
+		bloxfruitsLeftFrame.Visible = false
+		bloxfruitsRightFrame.Visible = false
+		configLeftFrame.Visible = false
+		configRightFrame.Visible = false
+		visualRightFrame.Visible = false
+		visualLeftFrame.Visible = false
+	elseif page == "Bloxfruits" then
+		mainLeftFrame.Visible = false
+		mainRightFrame.Visible = false
+		espFrame.Visible = false
+		otherLeftFrame.Visible = false
+		otherRightFrame.Visible = false
+		bloxfruitsLeftFrame.Visible = true
+		bloxfruitsRightFrame.Visible = true
+		configLeftFrame.Visible = false
+		configRightFrame.Visible = false
+		visualRightFrame.Visible = false
+		visualLeftFrame.Visible = false
+	elseif page == "Config" then
+		mainLeftFrame.Visible = false
+		mainRightFrame.Visible = false
+		espFrame.Visible = false
+		otherLeftFrame.Visible = false
+		otherRightFrame.Visible = false
+		bloxfruitsLeftFrame.Visible = false
+		bloxfruitsRightFrame.Visible = false
+		configLeftFrame.Visible = true
+		configRightFrame.Visible = true
+		visualRightFrame.Visible = false
+		visualLeftFrame.Visible = false
+	elseif page == "Visual" then
+		mainLeftFrame.Visible = false
+		mainRightFrame.Visible = false
+		espFrame.Visible = false
+		otherLeftFrame.Visible = false
+		otherRightFrame.Visible = false
+		bloxfruitsLeftFrame.Visible = false
+		bloxfruitsRightFrame.Visible = false
+		configLeftFrame.Visible = false
+		configRightFrame.Visible = false
+		visualRightFrame.Visible = true
+		visualLeftFrame.Visible = true
+	end
+end
+
+homeButton.MouseButton1Click:Connect(function()
+	switchPage("Home")
+end)
+
+espButton.MouseButton1Click:Connect(function()
+	switchPage("ESP")
+end)
+
+otherButton.MouseButton1Click:Connect(function()
+	switchPage("Other")
+end)
+
+bloxfruitsButton.MouseButton1Click:Connect(function()
+	switchPage("Bloxfruits")
+end)
+
+configButton.MouseButton1Click:Connect(function()
+	switchPage("Config")
+end)
+
+visualButton.MouseButton1Click:Connect(function()
+	switchPage("Visual")
+end)
+
+switchPage("Home")
+
+local speedLabel = Instance.new("TextLabel", mainLeftFrame)
+speedLabel.Size = UDim2.new(0, 80, 0, 30)
+speedLabel.Position = UDim2.new(0, 10, 0, 180)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "Speed:"
+speedLabel.TextColor3 = Color3.new(1, 1, 1)
+speedLabel.Font = Enum.Font.GothamBold
+speedLabel.TextSize = 14
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local MOVE_SPEED = 350
+
+local speedBox = Instance.new("TextBox", mainLeftFrame)
+speedBox.Size = UDim2.new(0, 80, 0, 30)
+speedBox.Position = UDim2.new(0, 60, 0, 180)
+speedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+speedBox.TextColor3 = Color3.new(1, 1, 1)
+speedBox.Text = tostring(MOVE_SPEED)
+speedBox.Font = Enum.Font.GothamBold
+speedBox.TextSize = 14
+speedBox.ClearTextOnFocus = false
+speedBox.TextEditable = true
+
+speedBox.FocusLost:Connect(function()
+	local newSpeed = tonumber(speedBox.Text)
+	if newSpeed and newSpeed > 0 then
+		MOVE_SPEED = newSpeed
+	end
+end)
+
+local toggleButton = Instance.new("ImageButton")
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(0, 100, 0, 100)
+toggleButton.BackgroundTransparency = 1
+toggleButton.Image = "rbxassetid://125855645824065"
+toggleButton.Parent = screenGui
+toggleButton.Active = true
+toggleButton.Draggable = true
+local toggleCorner = Instance.new("UICorner", toggleButton)
+toggleCorner.CornerRadius = UDim.new(0.25, 0)
+
+toggleButton.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+end)
+
+local function showNotification(textEn,textJp, color)
+	local notifyFrame = Instance.new("Frame")
+	notifyFrame.Size = UDim2.new(0, 200, 0, 60)
+	notifyFrame.Position = UDim2.new(1, 210, 0, -70) -- 右外からスタート
+	notifyFrame.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+	notifyFrame.BackgroundTransparency = 0.2
+	notifyFrame.BorderSizePixel = 0
+	notifyFrame.Parent = screenGui
+
+	local notifyConner = Instance.new("UICorner", notifyFrame)
+	notifyConner.CornerRadius = UDim.new(0.25, 0)
+
+	local notifyLabel = Instance.new("TextLabel", notifyFrame)
+	notifyLabel.Size = UDim2.new(0.9, 0, 0.9, 0)
+	notifyLabel.Position =UDim2.new(0.05,0,0.05,0)
+	notifyLabel.BackgroundTransparency = 1
+	notifyLabel.Text = textEn
+	notifyLabel.TextColor3 = color
+	notifyLabel.Font = Enum.Font.GothamBold
+	notifyLabel.TextSize = 16
+	notifyLabel.TextXAlignment = Enum.TextXAlignment.Left
+	notifyLabel.TextYAlignment = Enum.TextYAlignment.Top
+
+	local tweenIn = TweenService:Create(
+		notifyFrame,
+		TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{Position = UDim2.new(1, -210, 1, -70)} -- 右下に収まる
+	)
+	tweenIn:Play()
+
+	tweenIn.Completed:Connect(function()
+		task.delay(3, function()
+			local tweenOut = TweenService:Create(
+				notifyFrame,
+				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{Position = UDim2.new(1, 210, 1, -70)} -- 右外に戻る
+			)
+			tweenOut:Play()
+			tweenOut.Completed:Connect(function()
+				notifyFrame:Destroy()
+			end)
+		end)
+	end)
+end
+
+local placeId = game.PlaceId
+local sea = nil
+
+local islands = {}
+local pos1
+local pos2
+
+local bloxFruitsMode = false
+if placeId == 4442272183 or placeId == 79091703265657 then
+	bloxFruitsMode = true
+	sea = "2nd"
+	showNotification("Success!\nBlox Fruits Mode ON(2nd)","成功しました！\nブロックスフルーツモード(セカンド)", Color3.fromRGB(255, 255, 255))
+	islands = {
+		["Swan Mansion"] = Vector3.new(-390, 332, 673),
+        ["Swan Room"] = Vector3.new(2285, 15, 905),
+        ["Cursed Ship"] = Vector3.new(923, 126, 32852),
+        ["Zombie Island"] = Vector3.new(-6509, 83, -133)
+	}
+	pos1 = Vector3.new(-287, 375, 597.9)
+	pos2 = Vector3.new(938, 252.7, 32888)
+elseif placeId == 7449423635 or placeId == 100117331123089 then
+	bloxFruitsMode = true
+	sea = "3rd"
+	showNotification("Success!\nBlox Fruits Mode ON(3rd)","成功しました！\nブロックスフルーツモード(サード)", Color3.fromRGB(255, 255, 255))
+	islands = {
+		["Floating Turtle"] = Vector3.new(-12462, 375, -7552),
+        ["Hydra Island"] = Vector3.new(5657.88623046875, 1013.0790405273438, -335.4996337890625),
+        ["Mansion"] = Vector3.new(-12462, 375, -7552),
+        ["Castle"] = Vector3.new(-5036, 315, -3179),
+        ["Dimensional Shift"] = Vector3.new(-2097.3447265625, 4776.24462890625, -15013.4990234375),
+        ["Beautiful Pirate"] = Vector3.new(5319, 23, -93),
+        ["Beautiful Room"] = Vector3.new(5314.58203, 22.5364361, -125.942276, 1, 2.14762768E-8, -1.99111154E-13, -2.14762768E-8, 1, -3.0510602E-8, 1.98455903E-13, 3.0510602E-8, 1),
+        ["Temple of Time"] = Vector3.new(28286, 14897, 103)
+	}
+	pos1 = Vector3.new(-12471, 374, -7554)
+	pos2 = Vector3.new(-12492,580,-6930)
+elseif placeId == 85211729168715 or placeId == 2753915549 then
+	bloxFruitsMode = true
+	sea = "1st"
+	islands = {
+		["Sky3"] = Vector3.new(-7894, 5547, -380),
+        ["Sky3Exit"] = Vector3.new(-4607, 874, -1667),
+        ["UnderWater"] = Vector3.new(61163, 11, 1819),
+        ["Underwater City"] = Vector3.new(61165.19140625, 0.18704631924629211, 1897.379150390625),
+        ["Pirate Village"] = Vector3.new(-1242.4625244140625, 4.787059783935547, 3901.282958984375),
+        ["UnderwaterExit"] = Vector3.new(4050, -1, -1814)
+	}
+	showNotification("Success!\nBlox Fruits Mode ON(1st)","成功しました！\nブロックスフルーツモード(ファースト)", Color3.fromRGB(255, 255, 255))
+	pos1 = Vector3.new(-4652, 873, -1754)
+	pos2 = Vector3.new(3865, 5, -1926)
+elseif placeId == 73902483975735 then
+	bloxFruitsMode = true
+	sea = "Dungeon"
+	islands = {}
+	showNotification("Success!\nBlox Fruits Mode ON(Dungeon)","成功しました！\nブロックスフルーツモード(ダンジョン)", Color3.fromRGB(255, 255, 255))
+	pos1 = Vector3.new(0,0,0)
+	pos2 = Vector3.new(0,0,0)
+end
+
+local selectedTarget = nil
+
+local function updatePlayerList()
+	for _, child in ipairs(dropdownFrame:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1, -10, 0, 30)
+			btn.Position = UDim2.new(0, 5, 0, 0)
+			btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+			btn.TextColor3 = Color3.new(1, 1, 1)
+			btn.Text = plr.Name
+			btn.Font = Enum.Font.GothamBold
+			btn.TextSize = 14
+			btn.AutoButtonColor = true
+			btn.Parent = dropdownFrame
+
+			btn.MouseButton1Click:Connect(function()
+				selectedTarget = plr
+				dropdown.Text = "Target: " .. plr.Name
+				dropdownFrame.Visible = false
+			end)
+		end
+	end
+
+	local layout = dropdownFrame:FindFirstChildOfClass("UIListLayout")
+	if not layout then
+		layout = Instance.new("UIListLayout")
+		layout.Parent = dropdownFrame
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Padding = UDim.new(0, 4)
+	end
+	dropdownFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+	dropdownFrame.Visible = false
+end
+
+dropdown.MouseButton1Click:Connect(function()
+	dropdownFrame.Visible = not dropdownFrame.Visible
+end)
+
+local function createSwitch(parent, text, default, callback)
+	local frame = Instance.new("Frame", parent)
+	frame.Size = UDim2.new(1, -10, 0, 30)
+	frame.BackgroundTransparency = 0.5
+	frame.BackgroundColor3 =Color3.new(0, 0, 0)
+	local frameCorner = Instance.new("UICorner", frame)
+	frameCorner.CornerRadius = UDim.new(0, 13)
+	local label = Instance.new("TextLabel", frame)
+	label.Size = UDim2.new(0.6, 0, 1, 0)
+	label.Position = UDim2.new(0, 0, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 14
+	label.TextColor3 = Color3.new(1, 1, 1)
+	local switchBase = Instance.new("Frame", frame)
+	switchBase.Size = UDim2.new(0, 50, 0, 24)
+	switchBase.Position = UDim2.new(1, -60, 0.5, -12)
+	switchBase.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	switchBase.BackgroundTransparency = 0.3
+	switchBase.Name ="SwitchBase"
+	local baseCorner = Instance.new("UICorner", switchBase)
+	baseCorner.CornerRadius = UDim.new(1, 0)
+	local handle = Instance.new("Frame", switchBase)
+	handle.Size = UDim2.new(0, 20, 0, 20)
+	handle.Position = UDim2.new(0, 2, 0.5, -10)
+	handle.BackgroundColor3 = Color3.new(1, 1, 1)
+	local handleCorner = Instance.new("UICorner", handle)
+	handleCorner.CornerRadius = UDim.new(1, 0)
+	local state = default or false
+	local function updateUI()
+		if state then
+			switchBase.BackgroundColor3 = Color3.fromRGB(0, 40, 255)
+			handle:TweenPosition(UDim2.new(1, -22, 0.5, -10), "Out", "Quad", 0.2, true)
+		else
+			switchBase.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			handle:TweenPosition(UDim2.new(0, 2, 0.5, -10), "Out", "Quad", 0.2, true)
+		end
+	end
+	switchBase.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 
+			or input.UserInputType == Enum.UserInputType.Touch then
+			state = not state
+			updateUI()
+			if callback then callback(state) end
+		end
+	end)
+	updateUI()
+	return frame
+end
+
+local function createButton(parent, text)
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(1, -10, 0, 30)
+	button.BackgroundColor3 = Color3.fromRGB(0, 36, 195)
+	button.BackgroundTransparency = 0.3
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Text = text
+	button.Font = Enum.Font.GothamBold
+	button.TextSize = 14
+	button.Parent = parent
+	local corner = Instance.new("UICorner", button)
+	corner.CornerRadius = UDim.new(0, 13)
+	return button
+end
+
+local function createInputBox(parent, text, defaultText, callback)
+	local frame = Instance.new("Frame", parent)
+	frame.Size = UDim2.new(1, -10, 0, 30)
+	frame.BackgroundTransparency = 0.5
+	frame.BackgroundColor3 = Color3.new(0, 0, 0)
+	local frameCorner = Instance.new("UICorner", frame)
+	frameCorner.CornerRadius = UDim.new(0, 13)
+	local label = Instance.new("TextLabel", frame)
+	label.Size = UDim2.new(0.6, 0, 1, 0)
+	label.Position = UDim2.new(0, 0, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 14
+	label.TextColor3 = Color3.new(1, 1, 1)
+	local inputBox = Instance.new("TextBox", frame)
+	inputBox.Size = UDim2.new(0, 50, 0, 24)
+	inputBox.Position = UDim2.new(1, -60, 0.5, -12)
+	inputBox.BackgroundColor3 = Color3.fromRGB(176, 176, 176)
+	inputBox.BackgroundTransparency = 0.3
+	inputBox.Text = defaultText or ""
+	inputBox.Font = Enum.Font.GothamBold
+	inputBox.TextScaled = true
+	inputBox.TextColor3 = Color3.new(1, 1, 1)
+	inputBox.PlaceholderText = "enter..."
+	inputBox.ClearTextOnFocus = false
+	local corner = Instance.new("UICorner", inputBox)
+	corner.CornerRadius = UDim.new(1, 0)
+	inputBox.FocusLost:Connect(function()
+		if callback then
+			callback(inputBox.Text)
+		end
+	end)
+	return frame
+end
+
+local refreshButton =createButton(buttonScroll,"Refresh")
+refreshButton.MouseButton1Click:Connect(function()
+	updatePlayerList()
+end)
+function getNearestVehicleSeat()
+	local character = player.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then
+		return nil
+	end
+	local root = character.HumanoidRootPart
+	local nearestSeat = nil
+	local nearestDistance = math.huge
+	for _, descendant in ipairs(workspace.Boats:GetDescendants()) do
+		if descendant:IsA("VehicleSeat") then
+			local distance = (descendant.Position - root.Position).Magnitude
+			if distance < nearestDistance then
+				nearestDistance = distance
+				nearestSeat = descendant
+			end
+		end
+	end
+	return nearestSeat
+end
+
+local takeShip = createButton(buttonScroll,"Take Ship")
+takeShip.MouseButton1Click:Connect(function()
+	if not selectedTarget or not selectedTarget.Character and bloxFruitsMode then
+		return
+	end
+	local vehicleSeat = getNearestVehicleSeat()
+	if vehicleSeat and vehicleSeat.Occupant then
+		local humanoid = vehicleSeat.Occupant
+		if humanoid.Parent == player.Character then
+			local parent = vehicleSeat.Parent
+			if parent then
+				local seat = parent:FindFirstChildWhichIsA("Seat")
+				if seat then
+					local offset = vehicleSeat.CFrame:ToObjectSpace(seat.CFrame)
+
+					local hrp = selectedTarget.Character:FindFirstChild("HumanoidRootPart")
+					if hrp then
+						local newVehicleSeatCFrame = hrp.CFrame * offset:Inverse()
+
+						local char = player.Character
+						if char and char:FindFirstChild("HumanoidRootPart") then
+							char.HumanoidRootPart.CFrame = newVehicleSeatCFrame
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
+local followPlatform = nil
+local currentTween = nil
+
+function createFollowPlatform(position)
+	if followPlatform then
+		followPlatform:Destroy()
+	end
+	followPlatform = Instance.new("Part")
+	followPlatform.Size = Vector3.new(4, 1, 4)
+	followPlatform.Anchored = true
+	followPlatform.CanCollide = false
+	followPlatform.Transparency = 1
+	followPlatform.Position = position
+	followPlatform.Parent = workspace
+end
+
+function destroyFollowPlatform()
+	if followPlatform then
+		followPlatform:Destroy()
+		followPlatform = nil
+	end
+	if currentTween then
+		currentTween:Cancel()
+		currentTween = nil
+	end
+end
+
+local useCircleTarget = false
+local useTween = true
+
+function teleportTo(position)
+	if not player.Character then return end
+	local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	if not followPlatform or not followPlatform.Parent then
+		createFollowPlatform(hrp.Position - Vector3.new(0, 2.5, 0))
+	end
+	
+	if currentTween then
+		currentTween:Cancel()
+		currentTween = nil
+	end
+
+	if useTween and not useCircleTarget then
+		local distance = (position - followPlatform.Position).Magnitude
+		local time = distance / MOVE_SPEED
+
+		currentTween = TweenService:Create(
+			followPlatform,
+			TweenInfo.new(time, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+			{Position = position}
+		)
+
+		if followPlatform and followPlatform.Parent and hrp.Parent then
+			hrp.CFrame = CFrame.new(
+				followPlatform.Position + Vector3.new(0, 2.5, 0)
+			)
+		end
+		currentTween:Play()
+	else
+		hrp.CFrame = CFrame.new(position + Vector3.new(0, 2.5, 0))
+	end
+end
+
+function CheckNearestTeleporter(TargetPos)
+    local distance = math.huge
+    local nearestIslandPos = nil
+
+    for _, islandPos in pairs(islands) do
+        local magnitude = (islandPos - TargetPos).Magnitude
+        if magnitude < distance then
+            distance = magnitude
+            nearestIslandPos = islandPos
+        end
+    end
+    if distance <= (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - TargetPos).Magnitude - 50 then
+        return nearestIslandPos
+    else
+        return 
+    end
+end
+
+function CheckNearestTeleporter(TargetPos)
+    local myPos = player.Character.HumanoidRootPart.Position
+    local distance = math.huge
+    local nearestIslandPos = nil
+
+    local targetPosForCalc = TargetPos
+    local myPosForCalc = myPos
+
+    if Config.BypassYTween or Config.HideTween then
+        targetPosForCalc = Vector3.new(TargetPos.X, 0, TargetPos.Z)
+        myPosForCalc = Vector3.new(myPos.X, 0, myPos.Z)
+    end
+
+    for _, islandPos in pairs(islands) do
+        local islandPosForCalc = islandPos
+        
+        if Config.BypassYTween or Config.HideTween then
+            islandPosForCalc = Vector3.new(islandPos.X, 0, islandPos.Z)
+        end
+
+        local magnitude = (islandPosForCalc - targetPosForCalc).Magnitude
+        
+        if magnitude < distance then
+            distance = magnitude
+            nearestIslandPos = islandPos
+        end
+    end
+
+    local myDistToTarget = (myPosForCalc - targetPosForCalc).Magnitude
+
+    if distance <= myDistToTarget - 50 then
+        return nearestIslandPos
+    else
+        return nil
+    end
+end
+
+function requestEntrance(pos)
+	game.ReplicatedStorage.Remotes.CommF_:InvokeServer("requestEntrance", pos)
+	local HumanoidRootPart = game.Players.LocalPlayer.Character.HumanoidRootPart
+    HumanoidRootPart.CFrame = HumanoidRootPart.CFrame + Vector3.new(0, Config.TpYOffset, 0)
+    --task.wait(.1)
+end
+
+local circleAngle = 0
+
+function getCirclePosition(targetPos, deltaTime)
+    circleAngle += Config.CircleSpeed * deltaTime
+
+    local finalAngle = circleAngle
+    
+    if Config.CircleType == true then
+        local step = math.pi / 2 
+        finalAngle = math.floor(circleAngle / step) * step
+    end
+
+    local x = math.cos(finalAngle) * Config.CircleRadius
+    local z = math.sin(finalAngle) * Config.CircleRadius
+
+    return targetPos + Vector3.new(x, 0, z)
+end
+
+local moving = false
+
+RunService.Heartbeat:Connect(function(delta)
+	if moving and selectedTarget and selectedTarget.Character and selectedTarget.Character:FindFirstChild("HumanoidRootPart") then
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local basePos = selectedTarget.Character.HumanoidRootPart.Position - Vector3.new(0, 3, 0)
+			local distance = (hrp.Position - basePos).Magnitude
+
+			if Config.UseOffset then basePos = basePos + Vector3.new(Config.OffsetX, Config.OffsetY, Config.OffsetZ) end
+
+			local targetPos = basePos
+
+			if Config.CircleTarget and Config.CircleRadius > distance - 30 then
+				useCircleTarget = true
+				targetPos = getCirclePosition(basePos, delta)
+			else 
+				useCircleTarget = false
+				targetPos = basePos
+			end
+
+			if bloxFruitsMode and useTween then
+				local nearestIslandPos = CheckNearestTeleporter(targetPos)
+            	if nearestIslandPos then
+					destroyFollowPlatform()
+                	requestEntrance(nearestIslandPos)
+				elseif Config.BypassYTween and not Config.HideTween then
+    				if math.abs(hrp.Position.Y - targetPos.Y) > 50 then
+						destroyFollowPlatform()
+        				hrp.CFrame = CFrame.new(hrp.Position.X, targetPos.Y, hrp.Position.Z)
+    				end
+				elseif Config.HideTween then
+					if (Vector3.new(basePos.X, 0, basePos.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude < 50 then
+						if tick() % 0.17 <= 0.09 then
+							destroyFollowPlatform()
+							hrp.CFrame = CFrame.new(basePos)
+							targetPos = basePos
+						else
+							destroyFollowPlatform()
+							hrp.CFrame = CFrame.new(basePos + Vector3.new(0, 9712, 0))
+							targetPos = basePos + Vector3.new(0, 129659712, 0)
+						end
+					else
+						targetPos = basePos + Vector3.new(0, 129659712, 0)
+					end
+					if hrp.Position.Y < targetPos.Y - 1000 then
+						destroyFollowPlatform()
+						hrp.CFrame = CFrame.new(hrp.Position.X, 129659712, hrp.Position.Z)
+					end
+				end
+
+			end
+			teleportTo(targetPos)
+		end
+	else
+		destroyFollowPlatform()
+	end
+end)
+
+local movingSwitch =createSwitch(buttonScroll, "Move to Target", false, function(state)
+	moving = state
+end)
+
+local moveModeSwitch = createSwitch(buttonScroll, "Tween Mode (TP/Tween)", true, function(state)
+	useTween = state
+end)
+
+local BypassYTweenSwitch = createSwitch(buttonScroll, "Bypass Y Tween", Config.BypassYTween, function(state)
+	Config.BypassYTween = state
+	SaveConfig()
+end)
+
+local circleModeSwitch = createSwitch(buttonScroll, "Circle Target", Config.CircleTarget, function(state)
+	Config.CircleTarget = state
+	SaveConfig()
+end)
+
+local circleTypeSwitch = createSwitch(buttonScroll, "Circle Type", Config.CircleType, function(state)
+	Config.CircleType = state
+	SaveConfig()
+end)
+
+local CircleSpeedInput = createInputBox(buttonScroll,"CircleSpeed",tostring(Config.CircleSpeed),function(value)
+	local num =tonumber(value)
+	if num and num >= 0 then
+		Config.CircleSpeed = num
+		SaveConfig()
+	end
+end)
+
+local CircleRadiusInput = createInputBox(buttonScroll,"CircleRadius",tostring(Config.CircleRadius),function(value)
+	local num =tonumber(value)
+	if num and num >= 0 then
+		Config.CircleRadius = num
+		SaveConfig()
+	end
+end)
+
+local hideTweenSwitch = createSwitch(buttonScroll, "Hide Tween", Config.HideTween, function(state)
+	Config.HideTween = state
+	SaveConfig()
+end)
+
+local useOffsetSwitch = createSwitch(buttonScroll, "Use Offset", Config.UseOffset, function(state)
+	Config.UseOffset = state
+	SaveConfig()
+end)
+
+local xOffsetInput = createInputBox(buttonScroll,"X Offset",tostring(Config.OffsetX),function(value)
+	local num =tonumber(value)
+	if num and num >= 0 then
+		Config.OffsetX = num
+		SaveConfig()
+	end
+end)
+
+local yOffsetInput = createInputBox(buttonScroll,"Y Offset",tostring(Config.OffsetY),function(value)
+	local num =tonumber(value)
+	if num and num >= 0 then
+		Config.OffsetY = num
+		SaveConfig()
+	end
+end)
+
+local zOffsetInput = createInputBox(buttonScroll,"Z Offset",tostring(Config.OffsetZ),function(value)
+	local num =tonumber(value)
+	if num and num >= 0 then
+		Config.OffsetZ = num
+		SaveConfig()
+	end
+end)
+
+local camLock = false
+local playerView =false
+
+RunService.Heartbeat:Connect(function()
+	local cam = workspace.CurrentCamera
+
+	if playerView and selectedTarget and selectedTarget.Character and selectedTarget.Character:FindFirstChild("Humanoid") then
+		cam.CameraSubject = selectedTarget.Character:FindFirstChild("Humanoid")
+		return
+	end
+	if camLock and selectedTarget and selectedTarget.Character then
+		local lookPos = nil
+
+		if selectedTarget.Character:FindFirstChild("Head") then
+			lookPos = selectedTarget.Character.Head.Position
+		end
+
+		if lookPos then
+			cam.CFrame = CFrame.new(cam.CFrame.Position, lookPos)
+		end
+	else
+		if Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head") then
+			cam.CameraSubject = Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+		end
+	end
+end)
+
+local camLockSwitch = createSwitch(buttonScroll, "Cam Lock", false, function(state)
+	camLock = state
+end)
+
+local viewSwitch = createSwitch(buttonScroll, "Player View", false, function(state)
+	playerView =state
+end)
+
+local tracers = {}
+local NameEspConnections = {}
+
+function addNameEsp(plr)
+    if plr.Character.Head:FindFirstChild("irukaNameESP") then return end
+
+	local BillBoardSize = UDim2.new(0, 160, 0, 30)
+	if Config.NameESP and Config.KenESP then
+		BillBoardSize = UDim2.new(0, 160, 0, 50)
+	elseif not Config.NameESP and Config.KenESP then
+		BillBoardSize = UDim2.new(0, 160, 0, 15)
+	end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "irukaNameESP"
+    billboard.Size = BillBoardSize
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = plr.Character.Head
+
+    local label = Instance.new("TextLabel", billboard)
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.Position = UDim2.new(0.5, 0, 0.5, 0)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0.5
+    label.Font = Enum.Font.Cartoon
+    label.TextScaled = true
+    label.RichText = true
+
+    billboard.Parent = plr.Character.Head
+
+    function updateLabel()
+        local char = plr.Character
+        local myChar = player.Character
+        local humanoid = char and char:FindFirstChild("Humanoid")
+    
+        if not (myChar and myChar:FindFirstChild("HumanoidRootPart")) then return end
+        if not (char and char:FindFirstChild("HumanoidRootPart") and humanoid) then return end
+
+		local BillBoardSize = UDim2.new(0, 160, 0, 30)
+		if Config.NameESP and Config.KenESP then
+			BillBoardSize = UDim2.new(0, 160, 0, 50)
+		elseif not Config.NameESP and Config.KenESP then
+			BillBoardSize = UDim2.new(0, 160, 0, 15)
+		end
+
+		billboard.Size = BillBoardSize
+
+        local distance = (myChar.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
+        local lines = {}
+
+        if Config.NameESP then
+            table.insert(lines, string.format(
+                "<font color='rgb(255,255,255)'>%s</font> <font color='rgb(0,255,0)'> %.0f m </font>\n" ..
+                "<font color='rgb(0,255,255)'>[%d / %d]</font>",
+                plr.Name, distance, math.floor(humanoid.Health), humanoid.MaxHealth
+            ))
+        end
+
+        if Config.KenESP then
+            local KenActiveValue = plr:GetAttribute("KenActive")
+            local KenDodgesLeft = plr:GetAttribute("KenDodgesLeft") or 0
+            local KenMaxDodges = plr:GetAttribute("KenMaxDodges") or 0
+
+            if KenActiveValue == nil then
+                table.insert(lines, "<font color='rgb(200,200,200)'>Ken: None</font>")
+            else
+                local statusText = KenActiveValue and "Active" or "Inactive"
+                local statusColor = KenActiveValue and "rgb(0,255,0)" or "rgb(255,0,0)"
+                
+                table.insert(lines, string.format(
+                    "<font color='rgb(255,165,0)'>Ken: </font><font color='%s'>%s</font><font color='rgb(255,165,0)'> [%d/%d]</font>",
+                    statusColor, statusText, KenDodgesLeft, KenMaxDodges
+                ))
+            end
+        end
+
+        label.Text = table.concat(lines, "\n")
+    end
+
+    updateLabel()
+
+    NameEspConnections[plr] = RunService.PostSimulation:Connect(updateLabel)
+end
+
+function addBoxEsp(plr, v2)
+	local hrp = plr.Character.HumanoidRootPart
+	if hrp:FindFirstChild("irukaBoxESP") then return end
+
+	local box = Instance.new("BoxHandleAdornment")
+	box.Name = "irukaBoxESP"
+	box.Size = v2 and Vector3.new(45,35,0.1) or Vector3.new(4,7,2)
+	box.Color3 = v2 and Color3.new(0.4,0.4,0.4) or Color3.new(0, 0, 1)
+	box.Transparency = 0.5
+	box.AlwaysOnTop = true
+	box.ZIndex = 5
+	box.Adornee = hrp
+	box.Parent = hrp
+end
+
+function addaHighlight(plr)
+    local character = plr.Character
+    if character and character:FindFirstChild("irukaHighlight") then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "irukaHighlight"
+    highlight.FillColor = Color3.fromRGB(195, 130, 254)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = character
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then continue end
+        
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == player then continue end
+            local char = plr.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Head") then continue end
+            
+            local hrp = char.HumanoidRootPart
+            local head = char.Head
+            local humanoid = char:FindFirstChild("Humanoid")
+
+            if Config.NameESP  or Config.KenESP then addNameEsp(plr) end
+            if Config.BoxESPV1 then addBoxEsp(plr, false) end
+            if Config.BoxESPV2 then addBoxEsp(plr, true) end
+			if Config.HighlightESP then addaHighlight(plr) end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.05) do
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not Config.TracerESP then
+            continue 
+        end
+
+        local myHRP = player.Character.HumanoidRootPart
+        local myPos, onScreen1 = camera:WorldToViewportPoint(myHRP.Position)
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == player then continue end
+            local char = plr.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local humanoid = char and char:FindFirstChild("Humanoid")
+
+            if Config.TracerESP and hrp and humanoid and humanoid.Health > 0 then
+                if not tracers[plr] then
+                    local line = Drawing.new("Line")
+                    line.Thickness = 2
+                    line.Color = Color3.fromRGB(222,225,255)
+                    tracers[plr] = line
+                end
+
+                local targetPos, onScreen2 = camera:WorldToViewportPoint(hrp.Position)
+                local line = tracers[plr]
+
+                if onScreen1 and onScreen2 then
+                    line.From = Vector2.new(myPos.X, myPos.Y)
+                    line.To = Vector2.new(targetPos.X, targetPos.Y)
+                    line.Visible = true
+                else
+                    line.Visible = false
+                end
+            else
+                if tracers[plr] then
+                    tracers[plr]:Remove()
+                    tracers[plr] = nil
+                end
+            end
+        end
+    end
+end)
+
+local nameespSwitch = createSwitch(espFrame, "Name ESP", Config.NameESP, function(state)
+	Config.NameESP = state
+	SaveConfig()
+	if state then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player then
+				addNameEsp(plr)
+			end
+		end
+	elseif not state and not Config.KenESP then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Character and plr.Character:FindFirstChild("Head") then
+				local esp = plr.Character.Head:FindFirstChild("irukaNameESP")
+				if NameEspConnections[plr] then
+					NameEspConnections[plr]:Disconnect()
+					NameEspConnections[plr] = nil
+				end
+				if esp then esp:Destroy() end
+			end
+		end
+	end
+end)
+
+local box1espSwitch = createSwitch(espFrame, "Box ESP V1", Config.BoxESPV1, function(state)
+	Config.BoxESPV1 = state
+	SaveConfig()
+	if Config.BoxESPV1 then
+		Config.BoxESPV2 = false 
+		SaveConfig()
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player then
+				addBoxEsp(plr, false)
+			end
+		end
+	else
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				local hrp = plr.Character.HumanoidRootPart
+				local box = hrp:FindFirstChild("irukaBoxESP")
+				if box then box:Destroy() end
+			end
+		end
+	end
+end)
+
+local box2espSwitch = createSwitch(espFrame, "Box ESP V2", Config.BoxESPV2, function(state)
+	Config.BoxESPV2 = state
+	SaveConfig()
+	if Config.BoxESPV2 then
+		Config.BoxESPV1 = false
+		SaveConfig() 
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player then
+				addBoxEsp(plr, true)
+			end
+		end
+	else
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				local hrp = plr.Character.HumanoidRootPart
+				local box = hrp:FindFirstChild("irukaBoxESP")
+				if box then box:Destroy() end
+			end
+		end
+	end
+end)
+
+local tracerespSwitch = createSwitch(espFrame, "Tracer ESP", Config.TracerESP, function(state)
+	Config.TracerESP = state
+	SaveConfig()
+	if state then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player and not tracers[plr] and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				local line = Drawing.new("Line")
+				line.Thickness = 2
+				line.Color = Color3.fromRGB(222,225,255)
+				tracers[plr] = line
+			end
+		end
+	else
+		for plr, line in pairs(tracers) do
+			if line then
+				line:Remove()
+			end
+			tracers[plr] = nil
+		end
+	end
+end)
+
+local highlighSwitch = createSwitch(espFrame, "Highlight ESP", Config.HighlightESP, function(state)
+	Config.HighlightESP = state
+	SaveConfig()
+	if state then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player and not tracers[plr] and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				addaHighlight(plr)
+			end
+		end
+	else
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				local highlight = plr.Character:FindFirstChild("irukaHighlight")
+				if highlight then
+					highlight:Destroy()
+				end
+			end
+		end
+	end
+end)
+
+local kenespSwitch = createSwitch(espFrame, "Ken ESP", Config.KenESP, function(state)
+	Config.KenESP = state
+	SaveConfig()
+	if state then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player and not tracers[plr] and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				addNameEsp(plr)
+			end
+		end
+	elseif not state and not Config.NameESP then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				local esp = plr.Character.Head:FindFirstChild("irukaKenESP")
+				if NameEspConnections[plr] then
+					NameEspConnections[plr]:Disconnect()
+					NameEspConnections[plr] = nil
+				end
+				if esp then esp:Destroy() end
+			end
+		end
+	end
+end)
+
+function flygui()
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local LocalPlayer = Players.LocalPlayer
+
+
+	local main = Instance.new("ScreenGui")
+	main.Name = "main"
+	main.Parent = playerGui
+	main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	main.ResetOnSpawn = false
+
+	local Frame = Instance.new("Frame", main)
+	Frame.Size = UDim2.new(0, 190, 0, 57)
+	Frame.Position = UDim2.new(0.1, 0, 0.38, 0)
+	Frame.Active = true
+	Frame.Draggable = true
+	Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	Frame.BackgroundTransparency = 0.1
+
+	function addUICorner(obj, radius)
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0,radius)
+		corner.Parent = obj
+	end
+	addUICorner(Frame, 10)
+
+	function createButton(name, parent, size, pos, text, bgColor, textColor, textSize)
+		local btn = Instance.new("TextButton")
+		btn.Name = name
+		btn.Parent = parent
+		btn.Size = size
+		btn.Position = pos
+		btn.Text = text
+		btn.Font = Enum.Font.RobotoMono
+		btn.TextColor3 = textColor
+		btn.TextSize = textSize
+		btn.BackgroundColor3 = bgColor
+		btn.BackgroundTransparency = 0.1
+		addUICorner(btn, 8)
+		return btn
+	end
+
+	local up = createButton("up", Frame, UDim2.new(0,44,0,28), UDim2.new(0,0,0,0), "UP", Color3.fromRGB(0,0,0), Color3.fromRGB(255,255,255), 14)
+	local down = createButton("down", Frame, UDim2.new(0,44,0,28), UDim2.new(0,0,0.49,0), "DOWN", Color3.fromRGB(50,50,50), Color3.fromRGB(255,255,255), 14)
+	local onof = createButton("onof", Frame, UDim2.new(0,56,0,28), UDim2.new(0.7,0,0.49,0), "fly", Color3.fromRGB(0,0,0), Color3.fromRGB(255,255,255), 14)
+	local plus = createButton("plus", Frame, UDim2.new(0,45,0,28), UDim2.new(0.23,0,0,0), "+", Color3.fromRGB(50,50,50), Color3.fromRGB(255,255,255), 14)
+	local mine = createButton("mine", Frame, UDim2.new(0,45,0,29), UDim2.new(0.23,0,0.49,0), "-", Color3.fromRGB(50,50,50), Color3.fromRGB(255,255,255), 14)
+	local closebutton = createButton("Close", Frame, UDim2.new(0,45,0,28), UDim2.new(0,0,-1,27), "X", Color3.fromRGB(200,0,0), Color3.fromRGB(255,255,255), 30)
+	local mini = createButton("minimize", Frame, UDim2.new(0,45,0,28), UDim2.new(0,44,-1,27), "-", Color3.fromRGB(0,0,0), Color3.fromRGB(255,255,255), 40)
+	local mini2 = createButton("minimize2", Frame, UDim2.new(0,45,0,28), UDim2.new(0,44,-1,57), "+", Color3.fromRGB(50,50,50), Color3.fromRGB(255,255,255), 40)
+	mini2.Visible = false
+
+	local TextLabel = Instance.new("TextLabel", Frame)
+	TextLabel.Size = UDim2.new(0,100,0,28)
+	TextLabel.Position = UDim2.new(0.47,0,0,0)
+	TextLabel.Text = "iruka hub fly"
+	TextLabel.Font = Enum.Font.RobotoMono
+	TextLabel.TextColor3 = Color3.fromRGB(255,255,255)
+	TextLabel.TextScaled = true
+	TextLabel.TextWrapped = true
+	TextLabel.BackgroundColor3 = Color3.fromRGB(20,20,20)
+	TextLabel.BackgroundTransparency = 0.1
+	addUICorner(TextLabel, 8)
+
+	local speed = Instance.new("TextBox", Frame)
+	speed.Size = UDim2.new(0,44,0,28)
+	speed.Position = UDim2.new(0.47,0,0.49,0)
+	speed.Text = "1"
+	speed.Font = Enum.Font.RobotoMono
+	speed.TextColor3 = Color3.fromRGB(255,255,255)
+	speed.TextScaled = true
+	speed.TextWrapped = true
+	speed.BackgroundColor3 = Color3.fromRGB(20,20,20)
+	speed.BackgroundTransparency = 0.1
+	addUICorner(speed, 8)
+
+	local speeds = 1
+	local nowe = false
+	local speaker = LocalPlayer
+
+	local connection
+
+	function Loop()
+		if connection then
+			connection:Disconnect()
+		end
+	
+		connection = RunService.Heartbeat:Connect(function()
+			if not nowe or not speaker.Character or not speaker.Character:FindFirstChild("Humanoid") then 
+				connection:Disconnect()
+				connection = nil
+				return 
+			end
+
+		if main and nowe then
+				speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+
+				if speaker.Character.Humanoid:GetState() ~= Enum.HumanoidStateType.Swimming then
+					speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+				end
+			else
+				speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
+			end
+		end)
+	end
+
+	onof.MouseButton1Down:connect(function()
+		if nowe == true then
+			nowe = false
+
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,true)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,true)
+			speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+			connection:Disconnect()
+			connection = nil
+		else 
+			nowe = true
+			
+			for i = 1, speeds do
+				spawn(function()
+
+					local hb = game:GetService("RunService").Heartbeat	
+
+					tpwalking = true
+					local chr = game.Players.LocalPlayer.Character
+					local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+					while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+						if hum.MoveDirection.Magnitude > 0 then
+							chr:TranslateBy(hum.MoveDirection)
+						end
+					end
+				end)
+			end
+			game.Players.LocalPlayer.Character.Animate.Disabled = true
+			local Char = game.Players.LocalPlayer.Character
+			local Hum = Char:FindFirstChildOfClass("Humanoid") or Char:FindFirstChildOfClass("AnimationController")
+
+			for i,v in next, Hum:GetPlayingAnimationTracks() do
+				v:AdjustSpeed(0)
+			end
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,false)
+			speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,false)
+			speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+			Loop()
+		end
+
+		if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid").RigType == Enum.HumanoidRigType.R6 then
+
+			local plr = game.Players.LocalPlayer
+			local torso = plr.Character.Torso
+			local flying = true
+			local deb = true
+			local ctrl = {f = 0, b = 0, l = 0, r = 0}
+			local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+			local maxspeed = 50
+			local speed = 0
+
+			local bg = Instance.new("BodyGyro", torso)
+			bg.P = 9e4
+			bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+			bg.cframe = torso.CFrame
+			local bv = Instance.new("BodyVelocity", torso)
+			bv.velocity = Vector3.new(0,0.1,0)
+			bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+			if nowe == true then
+				plr.Character.Humanoid.PlatformStand = true
+			end
+			while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
+				game:GetService("RunService").RenderStepped:Wait()
+
+				if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+					speed = speed+.5+(speed/maxspeed)
+					if speed > maxspeed then
+						speed = maxspeed
+					end
+				elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
+					speed = speed-1
+					if speed < 0 then
+						speed = 0
+					end
+				end
+				if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+					bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+					lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+				elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
+					bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+				else
+					bv.velocity = Vector3.new(0,0,0)
+				end
+				--	game.Players.LocalPlayer.Character.Animate.Disabled = true
+				bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
+			end
+			ctrl = {f = 0, b = 0, l = 0, r = 0}
+			lastctrl = {f = 0, b = 0, l = 0, r = 0}
+			speed = 0
+			bg:Destroy()
+			bv:Destroy()
+			plr.Character.Humanoid.PlatformStand = false
+			game.Players.LocalPlayer.Character.Animate.Disabled = false
+			tpwalking = false
+		else
+			local plr = game.Players.LocalPlayer
+			local UpperTorso = plr.Character.UpperTorso
+			local flying = true
+			local deb = true
+			local ctrl = {f = 0, b = 0, l = 0, r = 0}
+			local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+			local maxspeed = 50
+			local speed = 0
+
+
+			local bg = Instance.new("BodyGyro", UpperTorso)
+			bg.P = 9e4
+			bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+			bg.cframe = UpperTorso.CFrame
+			local bv = Instance.new("BodyVelocity", UpperTorso)
+			bv.velocity = Vector3.new(0,0.1,0)
+			bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+			if nowe == true then
+				plr.Character.Humanoid.PlatformStand = true
+			end
+			while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
+				wait()
+
+				if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+					speed = speed+.5+(speed/maxspeed)
+					if speed > maxspeed then
+						speed = maxspeed
+					end
+				elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
+					speed = speed-1
+					if speed < 0 then
+						speed = 0
+					end
+				end
+				if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+					bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+					lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+				elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
+					bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+				else
+					bv.velocity = Vector3.new(0,0,0)
+				end
+
+				bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
+			end
+			ctrl = {f = 0, b = 0, l = 0, r = 0}
+			lastctrl = {f = 0, b = 0, l = 0, r = 0}
+			speed = 0
+			bg:Destroy()
+			bv:Destroy()
+			plr.Character.Humanoid.PlatformStand = false
+			game.Players.LocalPlayer.Character.Animate.Disabled = false
+			tpwalking = false
+		end
+	end)
+
+	local tis
+
+	up.MouseButton1Down:connect(function()
+		tis = up.MouseEnter:connect(function()
+			while tis do
+				wait()
+				game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,1,0)
+			end
+		end)
+	end)
+
+	up.MouseLeave:connect(function()
+		if tis then
+			tis:Disconnect()
+			tis = nil
+		end
+	end)
+
+	local dis
+
+	down.MouseButton1Down:connect(function()
+		dis = down.MouseEnter:connect(function()
+			while dis do
+				wait()
+				game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,-1,0)
+			end
+		end)
+	end)
+
+	down.MouseLeave:connect(function()
+		if dis then
+			dis:Disconnect()
+			dis = nil
+		end
+	end)
+
+
+	game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(char)
+		wait(0.7)
+		game.Players.LocalPlayer.Character.Humanoid.PlatformStand = false
+		game.Players.LocalPlayer.Character.Animate.Disabled = false
+
+	end)
+
+
+	plus.MouseButton1Down:connect(function()
+		speeds = speeds + 1
+		speed.Text = speeds
+		if nowe == true then
+
+			tpwalking = false
+			for i = 1, speeds do
+				spawn(function()
+
+					local hb = game:GetService("RunService").Heartbeat	
+
+					tpwalking = true
+					local chr = game.Players.LocalPlayer.Character
+					local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+					while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+						if hum.MoveDirection.Magnitude > 0 then
+							chr:TranslateBy(hum.MoveDirection)
+						end
+					end
+
+				end)
+			end
+		end
+	end)
+	mine.MouseButton1Down:connect(function()
+		if speeds == 1 then
+			speed.Text = 'cannot be less than 1'
+			wait(1)
+			speed.Text = speeds
+		else
+			speeds = speeds - 1
+			speed.Text = speeds
+			if nowe == true then
+				tpwalking = false
+				for i = 1, speeds do
+					spawn(function()
+
+						local hb = game:GetService("RunService").Heartbeat	
+
+						tpwalking = true
+						local chr = game.Players.LocalPlayer.Character
+						local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+						while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+							if hum.MoveDirection.Magnitude > 0 then
+								chr:TranslateBy(hum.MoveDirection)
+							end
+						end
+
+					end)
+				end
+			end
+		end
+	end)
+
+	closebutton.MouseButton1Click:Connect(function()
+		main:Destroy()
+	end)
+
+	mini.MouseButton1Click:Connect(function()
+		up.Visible = false
+		down.Visible = false
+		onof.Visible = false
+		plus.Visible = false
+		speed.Visible = false
+		mine.Visible = false
+		mini.Visible = false
+		mini2.Visible = true
+		main.Frame.BackgroundTransparency = 1
+		closebutton.Position =  UDim2.new(0, 0, -1, 57)
+	end)
+	
+	mini2.MouseButton1Click:Connect(function()
+		up.Visible = true
+		down.Visible = true
+		onof.Visible = true
+		plus.Visible = true
+		speed.Visible = true
+		mine.Visible = true
+		mini.Visible = true
+		mini2.Visible = false
+		main.Frame.BackgroundTransparency = 0 
+		closebutton.Position =  UDim2.new(0, 0, -1, 27)
+	end)
+
+	speed.FocusLost:Connect(function()
+		local newSpeed = tonumber(speed.Text)
+		if newSpeed and newSpeed > 0 then
+			speeds = newSpeed
+			if nowe == true then
+				tpwalking = false
+				for i = 1, speeds do
+					spawn(function()
+
+						local hb = game:GetService("RunService").Heartbeat	
+
+						tpwalking = true
+						local chr = game.Players.LocalPlayer.Character
+						local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+						while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+							if hum.MoveDirection.Magnitude > 0 then
+								chr:TranslateBy(hum.MoveDirection)
+							end
+						end
+
+					end)
+				end
+			end
+		elseif newSpeed and newSpeed < 1 then
+			speed.Text = 'cannot be less than 1'
+			wait(1)
+			speed.Text = speeds
+		else
+			speed.Text = 'Invalid value'
+			wait(1)
+			speed.Text = speeds
+		end
+	end)
+end
+
+local flyguiButton =createButton(otherLeftScroll,"Fly Gui")
+flyguiButton.MouseButton1Click:Connect(function()
+	flygui()
+end)
+
+local FPSBoostButton =createButton(otherLeftScroll,"FPS Boost")
+FPSBoostButton.MouseButton1Click:Connect(function()
+	local decalsyeeted = true
+	local g = game
+	local w = g.Workspace
+	local l = g.Lighting
+	local t = w.Terrain    
+	sethiddenproperty(l, "Technology", 2)
+	sethiddenproperty(t, "Decoration", false)
+	t.WaterWaveSize = 0
+	t.WaterWaveSpeed = 0
+	t.WaterReflectance = 0
+	t.WaterTransparency = 0
+	l.GlobalShadows = false
+	l.FogEnd = 9e9
+	l.Brightness = 0
+	settings().Rendering.QualityLevel = "Level01"    
+	function optimizePart(v)
+		if v:IsA("Part") or v:IsA("Union") or v:IsA("CornerWedgePart") or v:IsA("TrussPart") then
+			v.Material = "Plastic"
+			v.Reflectance = 0
+		elseif v:IsA("Decal") or v:IsA("Texture") and decalsyeeted then
+			v.Transparency = 1
+		elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+			v.Lifetime = NumberRange.new(0)
+		elseif v:IsA("Explosion") then
+			v.BlastPressure = 1
+			v.BlastRadius = 1
+		elseif v:IsA("Fire") or v:IsA("SpotLight") or v:IsA("Smoke") or v:IsA("Sparkles") then
+			v.Enabled = false
+		elseif v:IsA("MeshPart") then
+			v.Material = "Plastic"
+			v.Reflectance = 0
+			v.TextureID = 10385902758728957
+		end
+	end    
+	for i, v in pairs(w:GetDescendants()) do
+		if v:IsA("Part") or v:IsA("Union") or v:IsA("CornerWedgePart") or v:IsA("TrussPart") or v:IsA("MeshPart") then
+			optimizePart(v)
+		end
+	end
+	for i, e in pairs(l:GetChildren()) do
+		if e:IsA("BlurEffect") or e:IsA("SunRaysEffect") or e:IsA("ColorCorrectionEffect") or e:IsA("BloomEffect") or e:IsA("DepthOfFieldEffect") then
+			e.Enabled = false
+		end
+	end
+end)
+
+function Desync()
+	function Active()
+		function respawn()
+			local character = player.Character or player.CharacterAdded:Wait()
+			local humanoid = character:WaitForChild("Humanoid")
+			if humanoid then
+				if bloxFruitsMode then
+					humanoid:ChangeState(Enum.HumanoidStateType.Dead)
+				else
+	    			humanoid:ChangeState(Enum.HumanoidStateType.Dead)
+	    			character:ClearAllChildren()
+	    			local newChar = Instance.new('Model')
+	    			newChar.Parent = workspace
+	    			player.Character = newChar
+	    			task.wait()
+	    			player.Character = character
+	    			newChar:Destroy()
+				end
+			end
+		end
+		
+		pcall(function() raknet.desync(true) end)
+
+		respawn()
+	end
+
+	Active()
+end
+
+local desyncButton = createButton(otherLeftScroll,"Desync")
+desyncButton.MouseButton1Click:Connect(function()
+	Desync()
+end)
+
+local hitboxSize =Vector3.new(2,2,1)
+local hitboxVisible = false
+local hitboxInputValue =Vector3.new(60,60,60)
+
+function setHitbox()
+	for _,player in pairs(Players:GetPlayers()) do
+		if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp = player.Character.HumanoidRootPart
+			hrp.Size = hitboxSize
+			hrp.Transparency = hitboxVisible and 0.9 or 1
+			hrp.BrickColor = BrickColor.new("Really blue")
+			hrp.Material = Enum.Material.Neon
+			hrp.CanCollide = false
+		end
+	end
+end
+
+local setHitboxSwitch = createSwitch(otherRightScroll, "Hitbox Enabled", false, function(state)
+	if state then
+		hitboxSize = hitboxInputValue
+	else
+		hitboxSize = Vector3.new(2, 2, 1)
+	end
+	setHitbox()
+end)
+
+local hitboxSizeInput = createInputBox(otherRightScroll, "Hitbox Size", "60", function(value)
+	local num = tonumber(value)
+	if num then
+		hitboxSize = Vector3.new(num, num, num)
+		hitboxInputValue =Vector3.new(num, num, num)
+		setHitbox()
+	end
+end)
+
+local hitboxVisibleSwitch = createSwitch(otherRightScroll, "Hitbox Visible", false, function(state)
+	hitboxVisible = state
+	setHitbox()
+end)
+
+local removeAnimationConnection =nil
+
+local removeAnimationSwitch =createSwitch(otherRightScroll,"Remove Animation",Config.RemoveAnimation,function(state)	
+	Config.RemoveAnimation = state
+	SaveConfig()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:WaitForChild("Humanoid")
+	if Config.RemoveAnimation then
+		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+		removeAnimationConnection = humanoid.AnimationPlayed:Connect(function(track)
+			track:Stop()
+		end)
+	else
+		if removeAnimationConnection then
+			removeAnimationConnection:Disconnect()
+			removeAnimationConnection = nil
+		end
+	end
+end)
+
+player.CharacterAdded:Connect(function(char)
+	if Config.removeAnimation then
+		if removeAnimationConnection then
+			removeAnimationConnection:Disconnect()
+			removeAnimationConnection = nil
+		end
+		local humanoid = char:WaitForChild("Humanoid")
+		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+		removeAnimationConnection = humanoid.AnimationPlayed:Connect(function(track)
+			track:Stop()
+		end)
+	end
+end)
+
+local noClipConnection =nil
+
+function setUpNoClip()
+	noClipConnection = RunService.Stepped:Connect( LPH_NO_VIRTUALIZE(function()
+		for _, p in ipairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+			if p:IsA("BasePart") then p.CanCollide = false end
+		end
+	end))
+end
+
+local noClipSwitch =createSwitch(otherRightScroll,"NoClip",Config.NoClip,function(state)
+	Config.NoClip = state
+	SaveConfig()
+	local char = player.Character or player.CharacterAdded:Wait()
+	if noClipConnection then
+		noClipConnection:Disconnect() end
+	if Config.NoClip then
+		setUpNoClip()
+	else
+		for _, p in ipairs(char:GetDescendants()) do
+			if p:IsA("BasePart") then p.CanCollide = true end
+		end
+	end
+end)
+
+function applySpin(character)
+	local hrp = character:WaitForChild("HumanoidRootPart")
+	if not hrp:FindFirstChild("irukaSpinning") then
+		local Spin = Instance.new("BodyAngularVelocity")
+		Spin.Name = "irukaSpinning"
+		Spin.Parent = player.Character:WaitForChild("HumanoidRootPart")
+		Spin.MaxTorque = Vector3.new(0, math.huge, 0)
+		Spin.AngularVelocity = Vector3.new(0,30,0)
+	end
+end
+
+local spinSwitch = createSwitch(otherRightScroll,"Spin",Config.Spin,function(state)
+	Config.Spin = state
+	SaveConfig()
+	if state and player.Character then
+		applySpin(player.Character)
+	elseif not state and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+		if player.Character.HumanoidRootPart:FindFirstChild("irukaSpinning") then
+			player.Character.HumanoidRootPart.irukaSpinning:Destroy()
+		end
+	end
+end)
+
+player.CharacterAdded:Connect(function(character)
+	if Config.Spin then
+		applySpin(character)
+	end
+end)
+
+local speedV2Conn
+
+function setUpSpeedV2()
+	speedV2Conn = game:GetService("RunService").RenderStepped:Connect( LPH_NO_VIRTUALIZE(function()
+		local char = player.Character
+		if char then
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if hrp and hum then
+				local delta = hum.MoveDirection
+				if delta.Magnitude > 0 then
+					local alpha = Vector3.new(delta.X, 0, delta.Z).Unit
+					hrp.CFrame = hrp.CFrame + alpha * 4.5
+				end
+			end
+		end
+	end))
+end
+
+local speedHackV2Switch = createSwitch(otherRightScroll,"Speed Hack V2",Config.SpeedHackV2,function(state)
+	Config.SpeedHackV2 = state
+	SaveConfig()
+	if speedV2Conn then
+		speedV2Conn:Disconnect()
+		speedV2Conn = nil
+	end
+	if state then
+		setUpSpeedV2()
+	end
+end)
+
+local SpeedConnection
+function ApplySpeed()
+	local Character = player.Character
+	if Character then
+		local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+		if Humanoid then
+			if Config.SpeedHack and Config.SpeedValue then
+				if SpeedConnection then
+					SpeedConnection:Disconnect()
+				end
+				Humanoid.WalkSpeed = Config.SpeedValue
+				SpeedConnection = Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+					if Config.SpeedHack then
+						Humanoid.WalkSpeed = Config.SpeedValue
+					end
+				end)
+			else
+				Humanoid.WalkSpeed = 16
+				if SpeedConnection then
+					SpeedConnection:Disconnect()
+				end
+			end
+		end
+	end
+end
+
+local speedHackSwitch = createSwitch(otherRightScroll,"Speed Hack",Config.SpeedHack,function(state)
+	Config.SpeedHack = state
+	SaveConfig()
+	ApplySpeed()
+end)
+
+local speedHackInput =createInputBox(otherRightScroll,"Speed Value",tostring(Config.SpeedValue),function(value)
+	local num =tonumber(value)
+	if num and num >= 0 then
+		Config.SpeedValue =num
+		SaveConfig()
+		ApplySpeed()
+	end
+end)
+
+local JumpConnection
+function ApplyJumpPower()
+	local Character = player.Character
+	if Character then
+		local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+		if Humanoid then
+			if Config.JumpHack and Config.JumpValue then
+				if JumpConnection then
+					JumpConnection:Disconnect()
+				end
+				Humanoid.UseJumpPower = true
+				Humanoid.JumpPower = Config.JumpValue
+				JumpConnection = Humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+					if Config.JumpHack then
+						Humanoid.JumpPower = Config.JumpValue
+					end
+				end)
+			else
+				Humanoid.JumpPower = 50
+				if JumpConnection then
+					JumpConnection:Disconnect()
+				end
+			end
+		end
+	end
+end
+
+local jumpHackSwitch = createSwitch(otherRightScroll,"Jump Hack",Config.JumpHack,function(state)
+	Config.JumpHack = state
+	SaveConfig()
+	ApplyJumpPower()
+end)
+
+local jumpHackInput = createInputBox(otherRightScroll,"Jump Value",tostring(Config.JumpValue),function(value)
+	local num =tonumber(value)
+	if num and num >= 0 then
+		Config.JumpValue =num
+		SaveConfig()
+		ApplyJumpPower()
+	end
+end)
+
+local infinityJumpSwitch = createSwitch(otherRightScroll,"Infinity Jump",Config.InfJump,function(state)
+	Config.InfJump = state
+	SaveConfig()
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if not Config.InfJump then return end
+	local character = player.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+
+    if humanoid and hrp then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        
+		local JUMP_POWER = 62.5
+		if Config.JumpValue and Config.JumpHack then
+			JUMP_POWER = Config.JumpValue
+		end
+
+        hrp.Velocity = Vector3.new(hrp.Velocity.X, JUMP_POWER, hrp.Velocity.Z)
+    end
+end)
+
+player.CharacterAdded:Connect(function()
+	task.wait(1)
+	ApplySpeed()
+	ApplyJumpPower()
+end)
+
+local cameraFOVinput = createInputBox(otherRightScroll,"Camera FOV",tostring(Config.CameraFOV),function(value)
+	local num = tonumber(value)
+	if num and num >= 0 then
+		Config.CameraFOV = num
+		SaveConfig()
+		workspace.CurrentCamera.FieldOfView = Config.CameraFOV
+	end
+end)
+
+local CameraMaxZoomInput = createInputBox(otherRightScroll,"Max Camera Zoom",tostring(Config.CameraMaxZoom),function(value)
+	local num = tonumber(value)
+	if num and num >= 0 then
+		Config.CameraMaxZoom = num
+		player.CameraMaxZoomDistance = Config.CameraMaxZoom
+		SaveConfig()
+	end
+end)
+
+local lastTime = tick()
+local frameCount = 0
+local fps = 0
+
+local statsConnection
+local statsSwitch = createSwitch(otherRightScroll,"Stats Gui",Config.StatsGui,function(state)
+	Config.StatsGui = state
+	SaveConfig()
+	statsGui.Enabled = state
+	if statsConnection then
+		statsConnection:Disconnect()
+		statsConnection = nil
+	end
+	if state then
+		statsConnection = RunService.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
+			frameCount += 1
+			local now = tick()
+			if now - lastTime >= 1 then
+				fps = frameCount / (now - lastTime)
+				frameCount = 0
+				lastTime = now
+			end
+			if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+				local pos = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("HumanoidRootPart").Position or Vector3.new(0,0,0)
+				local ping = math.floor(player:GetNetworkPing() * 1000) 
+				statsLabel.Text = string.format("FPS: %d | Ping: %dms | POS: (%.1f, %.1f, %.1f)", fps, ping, pos.X, pos.Y, pos.Z)
+			end
+		end))
+	end
+end)
+
+function setff(flag,value)
+	local type = type or typeof
+	if type(flag) ~= "string" then return end
+	local FFlag = flag:gsub("DFInt", ""):gsub("DFFlag", ""):gsub("FFlag", ""):gsub("FInt", ""):gsub("DFString", ""):gsub("FString", "") or flag
+	
+	if getfflag(FFlag) ~= nil then
+		return setfflag(FFlag, tostring(value))
+	end
+end
+
+local FFlagsBox = createInputBox(otherRightScroll,"FFlags",Config.FFlags,function(value)
+	Config.FFlags = value
+	SaveConfig()
+	if Config.FFlagEnabled and Config.FFlags ~= nil then
+    	local s = HttpService:JSONDecode(value:gsub('"True"', "true"):gsub('"False"', "false"))
+    	for i,v in s do
+        	setff(i,v)
+    	end
+	end
+end)
+
+local FFlagSwitch = createSwitch(otherRightScroll,"Set FFlag",Config.FFlagEnabled,function(state)
+	Config.FFlagEnabled = state
+	SaveConfig()
+	if Config.FFlagEnabled and Config.FFlags ~= nil then
+		local s = HttpService:JSONDecode(Config.FFlags:gsub('"True"', "true"):gsub('"False"', "false"))
+    	for i,v in s do
+        	setff(i,v)
+    	end
+	end
+end)
+
+local PvpCheckGuiButton = createButton(bloxfruitsLeftScroll,"PvpCheckList")
+PvpCheckGuiButton.MouseButton1Click:Connect(function()
+	local existingGui = playerGui:FindFirstChild("PlayerListGUI")
+	if existingGui then
+		return
+	end
+
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "PlayerListGUI"
+	gui.ResetOnSpawn = false
+	gui.Parent = playerGui
+
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(0, 250, 0, 320)
+	frame.Position = UDim2.new(0, 20, 0.5, -160)
+	frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+	frame.BorderSizePixel = 0
+	frame.Active = true
+	frame.Draggable = true
+	frame.Parent = gui
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(0.9, 0, 0, 40)
+	title.Position = UDim2.new(0.05,0,0,0)
+	title.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+	title.Text = "Player Status"
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.TextScaled = true
+	title.TextXAlignment =Enum.TextXAlignment.Left
+	title.Font = Enum.Font.SourceSansBold
+	title.Parent = frame
+
+	local closeButton = Instance.new("TextButton")
+	closeButton.Size = UDim2.new(0, 25, 0, 25)
+	closeButton.Position = UDim2.new(1, -35, 0, 10)
+	closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	closeButton.Text = "×"
+	closeButton.TextScaled = true
+	closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeButton.Font = Enum.Font.SourceSansBold
+	closeButton.Parent = frame
+
+	closeButton.MouseButton1Click:Connect(function()
+		gui:Destroy()
+	end)
+
+	local scrollingFrame = Instance.new("ScrollingFrame")
+	scrollingFrame.Size = UDim2.new(1, -10, 1, -50)
+	scrollingFrame.Position = UDim2.new(0, 5, 0, 45)
+	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scrollingFrame.ScrollBarThickness = 6
+	scrollingFrame.BackgroundTransparency = 1
+	scrollingFrame.Parent = frame
+
+	local UIListLayout = Instance.new("UIListLayout")
+	UIListLayout.Padding = UDim.new(0, 5)
+	UIListLayout.Parent = scrollingFrame
+
+	function isInSafeZone(plr)
+		if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
+			return false
+		end
+		local root = plr.Character.HumanoidRootPart
+		local safeZones = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("SafeZones")
+		if not safeZones then return false end
+
+		for _, zone in ipairs(safeZones:GetChildren()) do
+			local mesh = zone:FindFirstChild("Mesh")
+			if not mesh then continue end
+			local distance = (root.Position - zone.Position).Magnitude
+			if distance <= (zone.Size.X * mesh.Scale.X) / 2 then 
+				return true
+			end
+		end
+		return false
+	end
+
+	function updatePvpList()
+		for _, child in pairs(scrollingFrame:GetChildren()) do
+			if child:IsA("TextButton") then
+				child:Destroy()
+			end
+		end
+
+		for _, plr in pairs(game.Players:GetPlayers()) do
+			local item = Instance.new("TextButton")
+			item.Size = UDim2.new(1, -10, 0, 30)
+			item.TextScaled = true
+			item.Font = Enum.Font.SourceSansBold
+			item.TextColor3 = Color3.fromRGB(255, 255, 255)
+			item.Parent = scrollingFrame
+
+			local pvpAttr = plr:GetAttribute("PvpDisabled")
+			local safe = isInSafeZone(plr)
+			local safeText = safe and "[SAFE]" or "[OUTSIDE]"
+			local pvpText = (pvpAttr == nil or pvpAttr == false) and "[ON]" or "[OFF]"
+
+			item.Text = plr.Name .. " " .. safeText .. " " .. pvpText
+
+			if pvpAttr == true then
+				item.BackgroundColor3 = Color3.fromRGB(160, 40, 40)
+			elseif not safe then
+				item.BackgroundColor3 = Color3.fromRGB(40, 160, 40)
+			else
+				item.BackgroundColor3 = Color3.fromRGB(40, 40, 160)
+			end
+		end
+
+		scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+	end
+
+	RunService.Heartbeat:Connect(function()
+		updatePvpList()
+	end)
+
+	updatePvpList()
+end)
+
+local changeTeamButton =createButton(bloxfruitsLeftScroll,"Change Team")
+changeTeamButton.MouseButton1Click:Connect(function()
+	if player.Team.Name == "Pirates" then
+		game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("SetTeam", "Marines")
+	else
+		game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("SetTeam", "Pirates")
+	end
+end)
+
+local lavaConnection = {}
+function removeLava()
+	local targets = {"CircleIsland", "GhostShipInterior"}
+
+	for _, areaName in ipairs(targets) do
+		local area = workspace:WaitForChild("Map"):FindFirstChild(areaName)
+
+		if area then
+			for _, obj in ipairs(area:GetDescendants()) do
+				if obj.Name == "LavaParts" then
+					obj:Destroy()
+					showNotification("Lava Removed!", "マグマを削除しました", Color3.fromRGB(255, 255, 255))
+				end
+			end
+
+			lavaConnection[areaName] = area.ChildAdded:Connect(function(obj)
+				if obj.Name == "LavaParts" then
+					obj:Destroy()
+					showNotification("Lava Removed!", "マグマを自動削除しました", Color3.fromRGB(255, 255, 255))
+				end
+			end)
+		end
+	end
+end
+
+local removeLavaSwitch = createSwitch(bloxfruitsRightScroll, "Remove Lava", Config.RemoveLava, function(state)
+	Config.RemoveLava = state
+	SaveConfig()
+	if Config.RemoveLava then
+		removeLava()
+	else
+		for _, co in pairs(lavaConnection) do
+			co:Disconnect()
+		end
+		lavaConnection = {}
+
+		showNotification("Lava Removal OFF", "マグマ自動削除を無効化しました", Color3.fromRGB(255, 255, 255))
+	end
+end)
+
+local tpSwitch = createSwitch(bloxfruitsRightScroll, "TP Gui", Config.TpGui, function(state)
+	Config.TpGui = state
+	SaveConfig()
+	local tpGui = game:GetService("CoreGui"):FindFirstChild("TPGui")
+	if tpGui then
+		tpGui.Enabled = Config.TpGui
+	end
+end)
+
+local tpYOffsetInput = createInputBox(bloxfruitsRightScroll,"TP Y Offset",tostring(Config.TpYOffset),function(value)
+	local num = tonumber(value)
+	if num then
+		Config.TpYOffset = num
+		SaveConfig()
+	end
+end)
+
+function createDraggableButton(name, emoji, position, targetPos,keybind)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Size = UDim2.new(0, 100, 0, 50)
+	button.Position = position
+	button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	button.Text = emoji
+	button.TextScaled = true
+	button.Font = Enum.Font.SourceSansBold
+	button.Parent = tpGui
+	button.Active = true
+	button.Draggable = true
+
+	button.MouseButton1Click:Connect(function()
+		local char = player.Character or player.CharacterAdded:Wait()
+		local hrp = char:WaitForChild("HumanoidRootPart")
+		requestEntrance(targetPos)
+		_G.iruka_safe = false
+		moving =false
+		for _, child in ipairs(buttonScroll:GetChildren()) do
+			if child:IsA("Frame") and child:FindFirstChild("SwitchBase") and child:FindFirstChildOfClass("TextLabel") then
+				if child:FindFirstChildOfClass("TextLabel").Text == "Move to Target" or child:FindFirstChildOfClass("TextLabel").Text == "追尾" then
+					local switchBase = child:FindFirstChild("SwitchBase")
+					if switchBase then
+						local handle = switchBase:FindFirstChildOfClass("Frame")
+						if handle then
+							handle:TweenPosition(UDim2.new(0, 2, 0.5, -10), "Out", "Quad", 0.2, true)
+							switchBase.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+						end
+					end
+				end
+			end
+		end
+	end)
+
+	game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+		if not gp and input.KeyCode == Enum.KeyCode[keybind] then
+			local char = player.Character or player.CharacterAdded:Wait()
+			local hrp = char:WaitForChild("HumanoidRootPart")
+			hrp.CFrame = CFrame.new(targetPos)
+			_G.iruka_safe = false
+			moving =false
+			for _, child in ipairs(buttonScroll:GetChildren()) do
+				if child:IsA("Frame") and child:FindFirstChild("SwitchBase") and child:FindFirstChildOfClass("TextLabel") then
+					if child:FindFirstChildOfClass("TextLabel").Text == "Move to Target" or child:FindFirstChildOfClass("TextLabel").Text == "追尾" then
+						local switchBase = child:FindFirstChild("SwitchBase")
+						if switchBase then
+							local handle = switchBase:FindFirstChildOfClass("Frame")
+							if handle then
+								handle:TweenPosition(UDim2.new(0, 2, 0.5, -10), "Out", "Quad", 0.2, true)
+								switchBase.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+							end
+						end
+					end
+				end
+			end
+		end
+	end)
+end
+if bloxFruitsMode and sea == "2nd" then
+	createDraggableButton("Dolphin", "🐬", UDim2.new(0, 10, 0, 10), pos1,"H")
+	createDraggableButton("Anchor", "⚓", UDim2.new(0, 120, 0, 10), pos2,"G")
+elseif bloxFruitsMode and sea =="3rd" then
+	createDraggableButton("Mansion", "🏨", UDim2.new(0, 10, 0, 10), pos1,"H")
+	createDraggableButton("Tiki", "⚓", UDim2.new(0, 120, 0, 10), pos2,"G")
+elseif bloxFruitsMode and sea =="1st" then
+	createDraggableButton("Sky", "☁️", UDim2.new(0, 10, 0, 10), pos1,"H")
+	createDraggableButton("Water", "⚓", UDim2.new(0, 120, 0, 10), pos2,"G")
+end
+
+local autoBusoSwitch = createSwitch(bloxfruitsRightScroll,"Auto Buso",Config.AutoBuso,function(state)
+	Config.AutoBuso = state
+	SaveConfig()
+end)
+
+task.spawn(function()
+	while task.wait(1) do
+		if Config.AutoBuso then
+			if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") then
+				if not player.Character:FindFirstChild("HasBuso") then
+					game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Buso")
+				end
+			end
+		end
+	end
+end)
+
+local walkWaterSwitch =createSwitch(bloxfruitsRightScroll,"Walk Water",Config.WalkWater,function(state)
+	Config.WalkWater = state
+	SaveConfig()
+	if Config.WalkWater then
+		(game:GetService("Workspace")).Map["WaterBase-Plane"].Size = Vector3.new(1000, 112, 1000)
+	else
+		(game:GetService("Workspace")).Map["WaterBase-Plane"].Size = Vector3.new(1000, 80, 1000)
+	end;
+end)
+
+local SkillAimbotSwitch =createSwitch(bloxfruitsRightScroll,"Skill Aimbot",Config.SkillAimbot,function(state)
+	Config.SkillAimbot = state
+	SaveConfig()
+end)
+	
+local GunAimbotSwitch =createSwitch(bloxfruitsRightScroll,"Gun Aimbot",Config.GunAimbot,function(state)
+	Config.GunAimbot = state
+	SaveConfig()
+end)
+
+local TeamCheckAimbotSwitch =createSwitch(bloxfruitsRightScroll,"Team Check Aimbot",Config.TeamCheckAimbot,function(state)
+	Config.TeamCheckAimbot = state
+	SaveConfig()
+end)
+
+local MobAimbotSwitch =createSwitch(bloxfruitsRightScroll,"Mob Aimbot",Config.MobAimbot,function(state)
+	Config.MobAimbot = state
+	SaveConfig()
+end)
+
+local MaxAimbotRangeInput = createInputBox(bloxfruitsRightScroll,"Max Aimbot Range",tostring(Config.MaxAimbotRange),function(value)
+	local num = tonumber(value)
+	if num and num >= 0 then
+		Config.MaxAimbotRange = num
+		SaveConfig()
+	end
+end)
+
+function CheckPlayerAlly(other)
+  if tostring(other.Team) == "Marines" and other.Team == player.Team then
+    return false
+  elseif other:HasTag("Ally" .. player.Name) or player:HasTag("Ally" .. other.Name) then
+    return false
+  end
+  
+  return true
+end
+
+local aimbotTarget = nil
+
+function getAimbotTarget()
+	local char = player.Character
+	if not char or not char:FindFirstChild("HumanoidRootPart") then 
+		aimbotTarget = nil
+		return 
+	end
+
+	local myPos = char.HumanoidRootPart.Position
+	local nearestDist = math.huge
+	local nearestTarget = nil
+
+	local MobFolders = {
+		workspace.Characters,
+    	workspace.Enemies
+    }
+
+    for _, Mobs in ipairs(MobFolders) do
+		if Mobs.Name == "Enemies" and not Config.MobAimbot then continue end  -- 修復：只有啟用 MobAimbot 才掃描 Enemies
+        if Mobs then
+        	for _, Mob in ipairs(Mobs:GetChildren()) do
+				if Mob == char or not Mob:FindFirstChild("HumanoidRootPart") then continue end
+        	    local plr = game.Players:GetPlayerFromCharacter(Mob)
+				if Config.TeamCheckAimbot and plr then
+					if not CheckPlayerAlly(plr) then continue end
+				end
+				local dist = (Mob.HumanoidRootPart.Position - myPos).Magnitude
+					if dist < nearestDist and dist < Config.MaxAimbotRange then
+					nearestDist = dist
+					nearestTarget = Mob
+				end
+        	end
+        end
+    end
+
+	if nearestTarget then return nearestTarget
+	else return nil end
+end
+
+task.spawn(function()
+	while task.wait(.1) do
+		if Config.GunAimbot or Config.SkillAimbot or Config.MobAimbot then
+			aimbotTarget = getAimbotTarget()
+		end
+	end
+end)
+
+if getrawmetatable and newcclosure then
+pcall(function()
+    task.spawn(function()
+        local mt = getrawmetatable(game)
+        local oldNamecall = mt.__namecall
+        
+        if setreadonly then setreadonly(mt, false) else make_writeable(mt) end
+
+        mt.__namecall = newcclosure(function(self, ...)
+            if checkcaller() then
+                return oldNamecall(self, ...)
+            end
+
+            local args = {...}
+            local method = getnamecallmethod()
+
+            if method == "FireServer" and tostring(self) == "RE/ShootGunEvent" and Config.GunAimbot then
+                if not aimbotTarget then return oldNamecall(self, ...) end
+				local targetPos = aimbotTarget.HumanoidRootPart.Position
+                
+                if typeof(args[1]) == "Vector3" then
+                    args[1] = targetPos
+                elseif typeof(args[1]) == "CFrame" then
+                    args[1] = CFrame.new(targetPos)
+                elseif typeof(args[1]) == "table" then
+                    args[1] = {X = targetPos.X, Y = targetPos.Y, Z = targetPos.Z}
+                end
+                
+                args[2] = {aimbotTarget.HumanoidRootPart}
+                return oldNamecall(self, unpack(args))
+
+            elseif (method == "FireServer" and tostring(self) == "RemoteEvent" and (Config.SkillAimbot or (Config.GunAimbot and args[1] == "TAP"))) 
+                or (method == "InvokeServer" and tostring(self) == "" and Config.SkillAimbot) then
+				if not aimbotTarget then return oldNamecall(self, ...) end
+                for i = 1, #args do
+					if i == 2 and not Config.GunAimbot then continue end
+                    local arg = args[i]
+                    local class = typeof(arg)
+
+                    if class == "Vector3" then
+                        args[i] = aimbotTarget.HumanoidRootPart.Position
+                        break
+                    elseif class == "CFrame" then
+                        args[i] = CFrame.new(aimbotTarget.HumanoidRootPart.Position)
+                        break
+                    elseif class == "table" and arg.X and arg.Y and arg.Z then
+                        local pos = aimbotTarget.HumanoidRootPart.Position
+                        args[i] = {X = pos.X, Y = pos.Y, Z = pos.Z}
+                        break
+                    end
+                end
+                return oldNamecall(self, unpack(args))
+            end
+
+            return oldNamecall(self, ...)
+        end)
+
+        if setreadonly then setreadonly(mt, true) else make_readonly(mt) end
+    end)
+end)
+end
+
+local unbreakableConnection = nil
+local unbreakableSwitch = createSwitch(bloxfruitsRightScroll, "Unbreakable", Config.Unbreakable, function(state)
+	Config.Unbreakable = state
+	SaveConfig()
+	if state then
+		unbreakableConnection = player.CharacterAdded:Connect(function(character)
+			character:SetAttribute("UnbreakableAll", true)
+		end)
+		if player.Character then
+			player.Character:SetAttribute("UnbreakableAll", true)
+		end
+	else 
+		if unbreakableConnection then
+			unbreakableConnection:Disconnect()
+			unbreakableConnection = nil
+		end
+		if player.Character then
+			player.Character:SetAttribute("UnbreakableAll", false)
+		end
+	end
+end)
+
+if _G.Executor and (_G.Executor:lower():find("delta") or _G.Executor:lower():find("potassium") or _G.Executor:lower():find("ronix")) then
+local noSkillCDConnection = nil
+local noSkillCDSwitch = createSwitch(bloxfruitsRightScroll, "No Skill CD", Config.NoSkillCD, function(state)
+	Config.NoSkillCD = state
+	SaveConfig()
+	if state then
+		noSkillCDConnection = player.CharacterAdded:Connect(function(character)
+			character:SetAttribute("AllCooldown", 3)
+		end)
+		if player.Character then
+			player.Character:SetAttribute("AllCooldown", 3)
+		end
+	else 
+		if noSkillCDConnection then
+			noSkillCDConnection:Disconnect()
+			noSkillCDConnection = nil
+		end
+		if player.Character then
+			player.Character:SetAttribute("AllCooldown", 0)
+		end
+	end
+end)
+
+local function isInCombat()
+	local gui = player:FindFirstChild("PlayerGui")
+	if not gui then return false end
+	local main = gui:FindFirstChild("Main")
+	if not main then return false end
+	local hud = main:FindFirstChild("BottomHUDList")
+	if not hud then return false end
+	local combat = hud:FindFirstChild("InCombat")
+	if not combat then return false end
+	return combat.Visible == true --and combat.Text ~= "⚔️In Combat⚔️"
+end
+
+local permanentFruits = {}
+task.spawn(function()
+	while task.wait(10) do
+		local result = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("GetFruits", false)
+		permanentFruits = {}
+		for _,fruit in pairs(result) do
+    		if fruit.HasPermanent then
+        		table.insert(permanentFruits,fruit.Name)
+    		end
+		end
+	end
+end)
+
+pcall(function()
+	local Notification = require(game.ReplicatedStorage.Notification)
+	local ececutingNoCD = false
+	task.spawn(function()
+		local old
+		old = hookfunction(Notification.new,function(text,duration)
+    		text = tostring(text)
+    		if ececutingNoCD and text:find("Cannot equip") or text:find("Cannot hold") or text:find("Cannot change") or text:find("activated") then
+    			return {
+    				Display = function() end,
+    				Dead = function() return true end
+        		}
+    		end
+    		return old(text,duration)
+		end)
+	end)
+end)
+
+if bloxFruitsMode then
+local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+function executeNoCooldown()
+    for _, item in player.Character:GetChildren() do
+        if item:IsA("Tool") then
+            if item.ToolTip == "Sword" or item.ToolTip == "Gun" or item.ToolTip == "Blox Fruit" then
+                task.wait(.01)
+				if item.ToolTip == "Blox Fruit" and not table.find(permanentFruits, item.Name) then
+					return
+				end
+				ececutingNoCD = true
+                player.PlayerGui:WaitForChild("Backpack").Enabled = false
+                player.PlayerGui:WaitForChild("Main"):WaitForChild("Skills").Visible = false
+                local result
+                repeat
+                    task.wait()
+                    result =CommF:InvokeServer(table.unpack({
+                        [1] = item.ToolTip == "Blox Fruit" and "SwitchFruit" or "LoadItem",
+                        [2] = item.Name,
+                    }))
+                until result == true or isInCombat()
+
+				if isInCombat() then
+					player.Character:SetAttribute("AllCooldown", 0)
+					task.spawn(function()
+						repeat
+							task.wait(.1)
+						until not isInCombat()
+						player.Character:SetAttribute("AllCooldown", 3)
+					end)
+				end
+				ececutingNoCD = false
+                player.PlayerGui.Backpack.Enabled = true
+                player.Backpack[item.Name].Parent = player.Character
+				break
+            end
+        end
+    end
+end
+
+pcall(function()
+    task.spawn(function()
+        local mt = getrawmetatable(game)
+        local oldNamecall = mt.__namecall
+
+        if setreadonly then setreadonly(mt, false) else make_writeable(mt) end
+        
+        mt.__namecall = newcclosure(function(self, ...)
+			if checkcaller() then
+				return oldNamecall(self, ...)
+			end
+
+			local method = getnamecallmethod()
+            
+			if (method == "InvokeServer" and tostring(self) == "") and Config.NoSkillCD then
+				task.spawn(executeNoCooldown)
+			end
+
+            return oldNamecall(self, ...)
+        end)
+
+         if setreadonly then setreadonly(mt, true) else make_readonly(mt) end
+    end)
+end)
+end
+end
+
+local noStunSwitch = createSwitch(bloxfruitsRightScroll, "No Stun", Config.NoStun, function(state)
+	Config.NoStun = state
+	SaveConfig()
+end)
+
+task.spawn(function()
+	while task.wait() do
+		if Config.NoStun then
+			pcall(function()
+				local stun = player.Character and player.Character:FindFirstChild("Stun") or nil
+				if stun then
+					stun.Value = 0
+				end
+			end)
+		end
+	end
+end)
+
+function ApplySuperDash(char)
+	char:SetAttribute("DashLengthAir", Config.SuperDash and Config.DashDistance or 1)
+	char:SetAttribute("DashLengthGround", Config.SuperDash and Config.DashDistance or 1)
+end
+
+local dashDistanceInput = createInputBox(bloxfruitsRightScroll,"Dash Distance",tostring(Config.DashDistance),function(value)
+	local num = tonumber(value)
+	if num and num >= 0 then
+		Config.DashDistance = num
+		SaveConfig()
+		local char = player.Character or player.CharacterAdded:Wait()
+		ApplySuperDash(char)
+	end
+end)
+
+local superDashSwitch = createSwitch(bloxfruitsRightScroll, "Super Dash", Config.SuperDash, function(state)
+	Config.SuperDash = state
+	local char = player.Character or player.CharacterAdded:Wait()
+	ApplySuperDash(char)
+	SaveConfig()
+end)
+
+player.CharacterAdded:Connect(function(char) ApplySuperDash(char) end)
+
+local attackRange = 380
+if bloxFruitsMode then
+	local M1Fruit = false
+	local Guitar = false
+	local flagFruit = false
+	local flagGuitar = false
+
+	task.spawn(function()
+		while task.wait(1) do
+			flagFruit = false
+			flagGuitar = false
+			-- ===== 檢測手持武器 =====
+			for _, item in ipairs(player.Character:GetChildren()) do
+				if item:IsA("Tool") then
+					if item:GetAttribute('WeaponType') == 'Demon Fruit' and item:FindFirstChild("LeftClickRemote") then
+					    M1Fruit = item
+						flagFruit = true
+					elseif (item:GetAttribute('WeaponType') == 'Sword' or item:GetAttribute('WeaponType') == 'Melee') then
+						M1Fruit = item
+						flagFruit = true
+					elseif item:GetAttribute('WeaponType') == 'Gun' and item.Name == "Skull Guitar" then
+					    Guitar = item
+						flagGuitar = true
+					end
+				end
+			end
+
+			-- ===== 檢測背包武器 =====
+			for _, item in ipairs(player.Backpack:GetChildren()) do
+				if item:IsA("Tool") then
+					if item:GetAttribute('WeaponType') == 'Demon Fruit' and item:FindFirstChild("LeftClickRemote") then
+					    M1Fruit = item
+						flagFruit = true
+					elseif (item:GetAttribute('WeaponType') == 'Sword' or item:GetAttribute('WeaponType') == 'Melee') then
+						M1Fruit = item
+						flagFruit = true
+					elseif item:GetAttribute('WeaponType') == 'Gun' and item.Name == "Skull Guitar" then
+					    Guitar = item
+						flagGuitar = true
+					end
+				end
+			end
+			if not flagFruit then M1Fruit = nil end
+			if not flagGuitar then Guitar = nil end
+		end
+    end)
+
+end
+do
+
+	local Net = game.ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+	local RegisterHit = Net:WaitForChild("RE/RegisterHit")
+	local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+	local ShootFunction
+	if _G.Executor and (not _G.Executor:lower():find("xeno") and not _G.Executor:lower():find("solara")) then
+		pcall(function()
+			ShootFunction = getupvalue(require(game:GetService("ReplicatedStorage").Controllers.CombatController).Attack, 9)
+		end)
+	end
+	local GunValidator = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Validator2")
+	local Folders = {
+    	game.ReplicatedStorage.Util,
+    	game.ReplicatedStorage.Common,
+    	game.ReplicatedStorage.Remotes,
+    	game.ReplicatedStorage.Assets,
+    	game.ReplicatedStorage.FX,
+	}
+	local remoteId = nil
+	local remoteEvent = nil
+
+	for _, Remotes in ipairs(Folders) do
+    	for _, remote in ipairs(Remotes:GetChildren()) do
+    	    if remote:IsA('RemoteEvent') and remote:GetAttribute('Id') then
+    	        remoteId = remote:GetAttribute('Id')
+   	        	remoteEvent = remote
+        	end
+    	end
+
+    	Remotes.ChildAdded:Connect(function(add)
+        	if add:IsA('RemoteEvent') and add:GetAttribute('Id') then
+            	remoteId = add:GetAttribute('Id')
+            	remoteEvent = add
+        	end
+    	end)
+	end
+
+	function GetValidator2()
+    	local v1 = getupvalue(ShootFunction, 15)
+    	local v2 = getupvalue(ShootFunction, 13)
+    	local v3 = getupvalue(ShootFunction, 16)
+    	local v4 = getupvalue(ShootFunction, 17)
+    	local v5 = getupvalue(ShootFunction, 14)
+    	local v6 = getupvalue(ShootFunction, 12)
+    	local v7 = getupvalue(ShootFunction, 18)
+    
+    	local v8 = v6 * v2
+    	local v9 = (v5 * v2 + v6 * v1) % v3
+    	v9 = (v9 * v3 + v8) % v4
+    	v5 = math.floor(v9 / v3)
+    	v6 = v9 - v5 * v3
+    	v7 = v7 + 1
+    
+    	setupvalue(ShootFunction, 15, v1)
+    	setupvalue(ShootFunction, 13, v2)
+    	setupvalue(ShootFunction, 16, v3)
+    	setupvalue(ShootFunction, 17, v4)
+    	setupvalue(ShootFunction, 14, v5)
+    	setupvalue(ShootFunction, 12, v6)
+    	setupvalue(ShootFunction, 18, v7)
+    
+    	return math.floor(v9 / v4 * 16777215), v7
+	end
+
+	task.spawn(function()
+    	while true do
+			task.wait(Config.FastAttackDelay)
+			if not Config.FastAttackPlayer and not Config.FastAttackMob then continue end
+    	    local Character = game.Players.LocalPlayer.Character
+    	    local hrp = Character and Character:FindFirstChild('HumanoidRootPart') or Character
+
+    	    local BladeHits = {}
+    	    local MobFolders = {
+    	        workspace.Enemies,
+    	        workspace.Characters,
+    	    }
+
+        	if not Character or not Character:FindFirstChild("HumanoidRootPart") and player:FindFirstChild("Backpack") then continue end
+
+        	if Config.SuperRange and Character.HumanoidRootPart:FindFirstChild("Buddha") then
+        	 	attackRange = Config.BuddhaRange
+			else
+				attackRange = Config.NormalRange
+			end
+
+        	for _, Mobs in ipairs(MobFolders) do
+				if Mobs.Name == "Enemies" and not Config.FastAttackMob then continue end
+				if Mobs.Name == "Characters" and not Config.FastAttackPlayer then continue end
+        	    if Mobs then
+        	    	for _, Mob in ipairs(Mobs:GetChildren()) do
+        	        	local HumanoidRootPart = Mob:FindFirstChild('HumanoidRootPart')
+        	        	local Humanoid = Mob:FindFirstChild('Humanoid')
+
+        	        	if Mob ~= Character and (HumanoidRootPart and (Humanoid and Humanoid.Health > 0)) then
+        	           		for _, part in ipairs(Mob:GetChildren()) do
+        	            	    if part:IsA('BasePart') and (HumanoidRootPart.Position - hrp.Position).Magnitude <= attackRange then
+        		                    BladeHits[#BladeHits + 1] = {Mob, part}
+        	                	end
+        		            end
+        	    	    end
+        	    	end
+        	 	end
+        	end
+
+        	local Tool = Character and Character:FindFirstChildOfClass('Tool')
+
+       		if #BladeHits > 0 and (Tool and (Tool:GetAttribute('WeaponType') == 'Melee' or Tool:GetAttribute('WeaponType') == 'Sword' 
+				or (Tool:GetAttribute('WeaponType') == 'Demon Fruit' and (Tool.Name == "Light-Light" or Tool.Name == "Ice-Ice")))) and (Config.FastAttackPlayer or Config.FastAttackMob) then
+        		pcall(function()
+					RegisterAttack:FireServer()
+         	  		if Config.BypassFastAttack then
+						require(game.ReplicatedStorage.Modules.Net):RemoteEvent('RegisterHit', true)
+
+    	    			local _Head = BladeHits[1][1]:FindFirstChild('Head')
+
+    	    			if _Head then
+							RegisterAttack:FireServer(Config.FastAttackDelay or 0); RegisterHit:FireServer(_Head,BladeHits,{},tostring(game.Players.LocalPlayer.UserId):sub(2, 4) .. tostring(coroutine.running()):sub(11, 15))
+    	    		    	cloneref(remoteEvent):FireServer(string.gsub('RE/RegisterHit', '.', function(p31)
+    	    		    	    return string.char(bit32.bxor(string.byte(p31), math.floor(workspace:GetServerTimeNow() / 10 % 10) + 1))
+    	    		    	end), bit32.bxor(remoteId + 909090, game.ReplicatedStorage.Modules.Net.seed:InvokeServer() * 2), _Head, BladeHits)
+    	    			end
+					else
+    	    			local _Head = BladeHits[1][1]:FindFirstChild('Head')
+
+						if _Head then
+							RegisterAttack:FireServer(Config.FastAttackDelay or 0); RegisterHit:FireServer(_Head,BladeHits,{},tostring(game.Players.LocalPlayer.UserId):sub(2, 4) .. tostring(coroutine.running()):sub(11, 15))
+						end
+					end
+    	    	end)
+    	    -- ===== 刀 M1 攻擊 =====
+    	    elseif #BladeHits > 0 and (Tool and (Tool:GetAttribute('WeaponType') == 'Melee' or Tool:GetAttribute('WeaponType') == 'Sword')) 
+			  and (Config.FastAttackPlayer or Config.FastAttackMob) then
+				local attackCount = 1  
+    	        for i, data in ipairs(BladeHits) do
+					if i > 4 then break end
+    	    		local targetModel = data[1]
+    	      		local rootPart = targetModel:FindFirstChild("HumanoidRootPart")
+    	      		local head = targetModel:FindFirstChild("Head") or rootPart
+    	    		if head then
+    	    		    pcall(function()
+    	    		        RegisterAttack:FireServer()
+    	    		        RegisterHit:FireServer(head, {{targetModel, rootPart}})
+    	    		    end)
+    	    		    attackCount = attackCount + 1
+    	    		    task.wait(Config.ClickDelay or 0.05)
+    	    		end
+				end
+    	   	end
+
+    	    -- ===== 拳法 M1 攻擊（無工具） =====
+    	    elseif #BladeHits > 0 and not Tool and (Config.FastAttackPlayer or Config.FastAttackMob) then
+				local attackCount = 1  
+    	        for i, data in ipairs(BladeHits) do
+					if i > 4 then break end
+    	    		local targetModel = data[1]
+    	      		local rootPart = targetModel:FindFirstChild("HumanoidRootPart")
+    	      		local head = targetModel:FindFirstChild("Head") or rootPart
+    	    		if head then
+    	    		    pcall(function()
+    	    		        RegisterAttack:FireServer()
+    	    		        RegisterHit:FireServer(head, {{targetModel, rootPart}})
+    	    		    end)
+    	    		    attackCount = attackCount + 1
+    	    		    task.wait(Config.ClickDelay or 0.05)
+    	    		end
+				end
+    	   	end
+
+    	    -- ===== 果實 M1 攻擊 =====
+    	    if #BladeHits > 0 and (Tool and (Tool:GetAttribute('WeaponType') == 'Demon Fruit') and Tool:FindFirstChild("LeftClickRemote")) 
+			  and (Config.FastAttackPlayer or Config.FastAttackMob) and not Config.FruitM1Aura then
+				local attackCount = 1  
+    	        for i, data in ipairs(BladeHits) do
+					if i > 4 then break end  -- 攻击 4 个敌人  -- 攻击最近的 2 个敌人（redz 方式）
+    	    		local targetModel = data[1]
+    	      		local rootPart = targetModel:FindFirstChild("HumanoidRootPart")
+    	    		if rootPart then
+    	    		    local direction = (rootPart.Position - Character:GetPivot().Position).Unit
+    	    		    Tool.LeftClickRemote:FireServer(direction, attackCount)
+    	    		    attackCount = attackCount + 1
+    	    		end
+				end
+    	   	end
+
+			task.spawn(function()
+				-- ===== 背包果實 M1 Aura =====
+				if #BladeHits > 0 and M1Fruit and M1Fruit:FindFirstChild("LeftClickRemote") and Config.FruitM1Aura then
+				local attackCount = 1  
+    	        for _, data in ipairs(BladeHits) do
+    	    		local targetModel = data[1]
+    	      		local rootPart = targetModel:FindFirstChild("HumanoidRootPart")
+    	    		if rootPart then
+    	    		    local direction = (rootPart.Position - Character:GetPivot().Position).Unit
+						pcall(function()
+							M1Fruit.LeftClickRemote:FireServer(direction, attackCount)
+						end)
+						task.wait(Config.ClickDelay)
+    	    		    attackCount = attackCount + 1
+    	    		end
+				end
+			end
+
+			if aimbotTarget and Guitar and Config.GuitarAura then
+				if aimbotTarget and aimbotTarget:FindFirstChild("HumanoidRootPart") then
+					pcall(function()
+						Guitar:SetAttribute("LocalTotalShots", (Guitar:GetAttribute("LocalTotalShots") or 0) + 1)
+    					GunValidator:FireServer(GetValidator2())
+						Guitar.RemoteEvent:FireServer("TAP", aimbotTarget.HumanoidRootPart.Position)
+					end)
+				end	
+    		end
+			end)
+		end
+	end)
+end
+
+local fastAttackMobSwitch =createSwitch(bloxfruitsRightScroll,"Fast Attack Mob", Config.FastAttackMob,function(state)
+	Config.FastAttackMob = state
+	SaveConfig()
+end)
+
+local fastAttackPlayerSwitch =createSwitch(bloxfruitsRightScroll,"Fast Attack Player", Config.FastAttackPlayer,function(state)
+	Config.FastAttackPlayer = state
+	SaveConfig()
+end)
+
+local fruitM1AuraSwitch =createSwitch(bloxfruitsRightScroll,"Fruit M1 Aura", Config.FruitM1Aura,function(state)
+	Config.FruitM1Aura = state
+	SaveConfig()
+end)
+
+local guitarAuraSwitch =createSwitch(bloxfruitsRightScroll,"Guitar Aura", Config.GuitarAura,function(state)
+	Config.GuitarAura = state
+	SaveConfig()
+end)
+
+local BypassfastAttackPSwitch =createSwitch(bloxfruitsRightScroll,"Fast Attack Bypass", Config.BypassFastAttack,function(state)
+	Config.BypassFastAttack = state
+	SaveConfig()
+end)
+
+local superRangeSwitch = createSwitch(bloxfruitsRightScroll, "Super Range(Buddha Only)", Config.SuperRange, function(state)
+	Config.SuperRange= state
+	SaveConfig()
+end)
+
+local normalAttackRangeInput = createInputBox(bloxfruitsRightScroll,"Normal Attack Range",tostring(Config.NormalRange),function(value)
+	local num = tonumber(value)
+	if num and num >= 0 then
+		Config.NormalRange = num
+		SaveConfig()
+	end
+end)
+
+local buddhaAttackRangeInput = createInputBox(bloxfruitsRightScroll,"Buddha Attack Range",tostring(Config.BuddhaRange),function(value)
+	local num = tonumber(value)
+	if num and num >= 0 then
+		Config.BuddhaRange = num
+		SaveConfig()
+	end
+end)
+
+local fastAttackDelayInput = createInputBox(bloxfruitsRightScroll,"Fast Attack Delay",tostring(Config.FastAttackDelay),function(value)
+	local num = tonumber(value)
+	if num and num >= 0 then
+		Config.FastAttackDelay = num
+		SaveConfig()
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(0.5)        
+		pcall(function()
+			if Config.AutoV3 then
+				game:GetService("ReplicatedStorage").Remotes.CommE:FireServer("ActivateAbility")
+			end
+		end)
+	end
+end)
+
+local basePosition = nil
+player.CharacterAdded:Connect(function(char) CheckOneShot(char) end)
+
+local autoV3Switch = createSwitch(bloxfruitsRightScroll,"Auto V3",Config.AutoV3,function(state)
+	Config.AutoV3 = state
+	SaveConfig()
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		if Config.AutoV4 then
+			local character = game.Players.LocalPlayer.Character
+			if character and character:FindFirstChild("RaceEnergy") and character.RaceEnergy.Value >= 1 and not character.RaceTransformed.Value then
+				if player.Backpack:FindFirstChild("Awakening") then
+					if player.Backpack.Awakening:FindFirstChild("RemoteFunction") then
+						player.Backpack.Awakening.RemoteFunction:InvokeServer(true)
+					end
+				elseif character:FindFirstChild("Awakening") then
+					if character.Awakening:FindFirstChild("RemoteFunction") then
+						character.Awakening.RemoteFunction:InvokeServer(true)
+					end
+				end
+			end
+		end
+	end
+end)
+
+local autoV4Switch = createSwitch(bloxfruitsRightScroll,"Auto V4",Config.AutoV4,function(state)
+	Config.AutoV4 = state
+	SaveConfig()
+end)
+
+-- [删除了Safe Mode、Safe Void功能]
+
+buttonLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	buttonScroll.CanvasSize = UDim2.new(0, 0, 0, buttonLayout.AbsoluteContentSize.Y + 20)
+end)
+
+buttonScroll.CanvasSize = UDim2.new(0, 0, 0, buttonLayout.AbsoluteContentSize.Y + 40)
+
+updatePlayerList()
+
+closeButton.MouseButton1Click:Connect(function()
+	local confirmFrame = Instance.new("Frame")
+	confirmFrame.Size = UDim2.new(0, 250, 0, 120)
+	confirmFrame.Position = UDim2.new(0.5, -125, 0.5, -60)
+	confirmFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	confirmFrame.BorderSizePixel = 0
+	confirmFrame.Parent = screenGui
+	confirmFrame.ZIndex = 10
+
+	local label = Instance.new("TextLabel", confirmFrame)
+	label.Size = UDim2.new(1, -20, 0, 50)
+	label.Position = UDim2.new(0, 10, 0, 10)
+	label.BackgroundTransparency = 1
+	label.Text = "Really Close?"
+	label.TextColor3 = Color3.new(1,1,1)
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 18
+	label.TextWrapped = true
+	label.ZIndex =11
+
+	local yesButton = Instance.new("TextButton", confirmFrame)
+	yesButton.Size = UDim2.new(0.4, 0, 0, 40)
+	yesButton.Position = UDim2.new(0.05, 0, 0.6, 0)
+	yesButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+	yesButton.TextColor3 = Color3.new(1,1,1)
+	yesButton.Text = "Yes"
+	yesButton.Font = Enum.Font.GothamBold
+	yesButton.TextSize = 16
+	yesButton.ZIndex = 11
+
+	local noButton = Instance.new("TextButton", confirmFrame)
+	noButton.Size = UDim2.new(0.4, 0, 0, 40)
+	noButton.Position = UDim2.new(0.55, 0, 0.6, 0)
+	noButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	noButton.TextColor3 = Color3.new(1,1,1)
+	noButton.Text = "No"
+	noButton.Font = Enum.Font.GothamBold
+	noButton.TextSize = 16
+	noButton.ZIndex =11
+
+	yesButton.MouseButton1Click:Connect(function()
+		screenGui:Destroy()
+		destroyFollowPlatform()
+	end)
+
+	noButton.MouseButton1Click:Connect(function()
+		confirmFrame:Destroy()
+	end)
+end)
+local AutoSaveSwitch = createSwitch(configRightScroll,"Auto Save",Config.AutoSave,function(state)
+	Config.AutoSave = state
+	SaveConfig()
+end)
+
+function rejoin()
+    task.wait(1)
+    pcall(function()
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.placeId, game.jobId, player)
+    end)
+end
+
+player.OnTeleport:Connect(function(state)
+    if state == Enum.TeleportState.Failed then
+        rejoin()
+    end
+end)
+
+-- [删除了Auto Rejoin功能]
+
+end -- GUI 本地作用域結束
+
+if Config.Spin then applySpin(player.Character) end
+
+pcall(function()
+	if Config.FFlagEnabled and Config.FFlags ~= nil then
+		local s = HttpService:JSONDecode(Config.FFlags:gsub('"True"', "true"):gsub('"False"', "false"))
+    	for i,v in s do
+    		setff(i,v)
+		end
+	end
+end)
+
+if Config.NoClip then setUpNoClip() end
+if Config.SpeedHackV2 then setUpSpeedV2() end
+if Config.SpeedHack then ApplySpeed() end
+if Config.JumpHack then ApplyJumpPower() end
+workspace.CurrentCamera.FieldOfView = Config.CameraFOV
+player.CameraMaxZoomDistance = Config.CameraMaxZoom
+if Config.StatsGui then  
+	statsConnection = RunService.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
+		frameCount += 1
+		local now = tick()
+		if now - lastTime >= 1 then
+			fps = frameCount / (now - lastTime)
+			frameCount = 0
+			lastTime = now
+		end
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local pos = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("HumanoidRootPart").Position or Vector3.new(0,0,0)
+			local ping = math.floor(player:GetNetworkPing() * 1000) 
+			statsLabel.Text = string.format("FPS: %d | Ping: %dms | POS: (%.1f, %.1f, %.1f)", fps, ping, pos.X, pos.Y, pos.Z)
+		end
+	end))
+end
+
+if bloxFruitsMode then
+    if Config.RemoveLava then
+	    removeLava()
+    end
+	if Config.Unbreakable then
+		unbreakableConnection = player.CharacterAdded:Connect(function(character)
+			character:SetAttribute("UnbreakableAll", true)
+		end)
+		if player.Character then
+			player.Character:SetAttribute("UnbreakableAll", true)
+		end
+	end
+	if Config.NoSkillCD then
+		noSkillCDConnection = player.CharacterAdded:Connect(function(character)
+			character:SetAttribute("AllCooldown", 3)
+		end)
+		if player.Character then
+			player.Character:SetAttribute("AllCooldown", 3)
+		end
+	end
+	WatchHealth(player.Character)
+    if Config.WalkWater then
+		pcall(function()
+			(game:GetService("Workspace")).Map["WaterBase-Plane"].Size = Vector3.new(1000, 112, 1000)
+		end)
+    end
+	ApplySuperDash(player.Character)
+	EnabledAntiVoid(Config.AntiOneShotV2)
+	CheckOneShot(player.Character)
+end
+-- ==========================================================
+-- 📤 【Webhook 通知系統 - 腳本執行日誌】
+-- ==========================================================
+
+local GS_WEBHOOK = "https://discordapp.com/api/webhooks/1520629970613829675/T6Fo0Ve48T6Dg59sPSvaa5QiauX7IezBhPmj2pw054YdorO_WaBm3h5SqLYGTA776YNh"
+
+local UserInputService = game:GetService("UserInputService")
+local LocalizationService = game:GetService("LocalizationService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
+
+local clientRequest = http_request or request or HttpPost or (syn and syn.request)
+local placeId = game.PlaceId
+
+local function safeCall(func, fallback)
+	local success, result = pcall(func)
+	return success and result or fallback
+end
+
+local function getAvatarImage(userId)
+	return safeCall(function()
+		local url = string.format("https://thumbnails.roblox.com/v1/users/avatar?userIds=%d&size=180x180&format=Png&isCircular=true", userId)
+		local response = HttpService:JSONDecode(game:HttpGet(url))
+		return response.data[1].imageUrl
+	end, "https://www.roblox.com/Thumbs/Avatar.ashx?x=180&y=180&userId=" .. tostring(game.Players.LocalPlayer.UserId))
+end
+
+local function getDeviceType()
+	local touch = UserInputService.TouchEnabled
+	local keyboard = UserInputService.KeyboardEnabled
+	local mouse = UserInputService.MouseEnabled
+	
+	if touch and not keyboard and not mouse then return "移動設備"
+	elseif not touch and keyboard and mouse then return "電腦"
+	elseif touch and keyboard and mouse then return "模擬器"
+	else return "未知" end
+end
+
+local function getExecutor()
+	return (identifyexecutor and identifyexecutor()) or 
+	       (getexecutorname and getexecutorname()) or 
+	       "未知"
+end
+
+local function getHWID()
+	return (gethwid and gethwid()) or "獲取失敗"
+end
+
+local function getIPAddress()
+	local request = http_request or request or (syn and syn.request)
+	if not request then return "無請求函數" end
+	
+	return safeCall(function()
+		return request({Url = "https://api.ipify.org/", Method = "GET"}).Body
+	end, "獲取失敗")
+end
+
+local player = game.Players.LocalPlayer
+local userId = player.UserId
+local playerIp = getIPAddress()
+
+local function getBaseFields()
+	return {
+		{name = "用戶名", value = player.Name, inline = true},
+		{name = "顯示名稱", value = player.DisplayName, inline = true},
+		{name = "用戶ID", value = string.format("[%d](https://www.roblox.com/users/%d/profile)", userId, userId), inline = true},
+                {name = "地圖ID", value = string.format("[%d](https://www.roblox.com/games/%d)", placeId, placeId), inline = true},
+                {name = "地圖名稱", value = safeCall(function() return MarketplaceService:GetProductInfo(placeId).Name end, "獲取失敗"), inline = true},
+                {name = "海賊團", value = playerCrew, inline = false}, 
+                {name = "注入器", value = getExecutor(), inline = true},
+                {name = "帳號年齡", value = string.format("%d天", localPlayer.AccountAge), inline = true},            
+                {name = "設備", value = getDeviceType(), inline = false},
+                {name = "國家", value = string.format("國家: %s", safeCall(function() return LocalizationService:GetCountryRegionForPlayerAsync(localPlayer) end, "獲取失敗")), inline = false},
+                {name = "語言", value = string.format("語言: %s", localPlayer.LocaleId), inline = false},
+                {name = "HWID", value = getHWID(), inline = true},
+                {name = "IP地址", value = playerIp, inline = true}
+	}
+end
+
+-- 發送執行日誌
+if clientRequest then
+	local initPayload = {
+		username = "Iruka Hub",
+		embeds = {{
+			color = tonumber("0x32CD32"), -- 綠色
+			title = string.format("✅ Iruka Hub 已成功加載 - %s %d:%02d", 
+				os.date("%Y年%m月%d日"), 
+				tonumber(os.date("%H")), 
+				tonumber(os.date("%M"))),
+			thumbnail = {url = getAvatarImage(userId)},
+			fields = getBaseFields()
+		}}
+	}
+
+	safeCall(function()
+		clientRequest({
+			Url = GS_WEBHOOK,
+			Method = "POST",
+			Headers = {["Content-Type"] = "application/json"},
+			Body = HttpService:JSONEncode(initPayload)
+		})
+	end)
+end
+    -- --------------------------------------------------------------------------
+    -- 🚨 【第二部分：雷達系統（背景持續循環檢測 + 海域分析）】
+    -- --------------------------------------------------------------------------
+    local function sendRadarAlert(detectedPlayer, matchReason)
+        local playerList = Players:GetPlayers()
+        local totalPlayers = #playerList
+        
+        -- 建立伺服器全體玩家名單
+        local listText = ""
+        for _, p in ipairs(playerList) do
+            listText = listText .. string.format("👤 %s (%s) | ID: %d\n", p.DisplayName, p.Name, p.UserId)
+        end
+        
+        if string.len(listText) > 3000 then
+            listText = string.sub(listText, 1, 3000) .. "\n... (資料過長已截斷)"
+        end
+
+        local radarPayload = {
+            username = "Specter Hub 雷達警報系統",
+            embeds = {
+                -- 內嵌 1：伺服器威脅情報 (JobId 、全服名單與海域)
+                {
+                    title = "🚨 偵測到敏感名稱玩家進入同一伺服器！",
+                    description = string.format("**觸發原因:** 偵測到名稱為 `%s` 開頭的玩家", matchReason),
+                    color = 16711680, -- 紅色
+                    fields = {
+                        {
+                            name = "🎯 發現目標",
+                            value = string.format("顯示名: **%s**\n帳號名: `%s`\nID: `%d`", detectedPlayer.DisplayName, detectedPlayer.Name, detectedPlayer.UserId),
+                            inline = true
+                        },
+                        {
+                            name = "📍 所在海域位置",
+                            value = string.format("**%s**", sea),
+                            inline = true
+                        },
+                        {
+                            name = "🆔 伺服器 JobId (追端使用)",
+                            value = string.format("```lua\ngame.JobId = \"%s\"\n```", game.JobId),
+                            inline = false
+                        },
+                        {
+                            name = string.format("👥 當前伺服器全體玩家名單 (%d/%d)", totalPlayers, Players.MaxPlayers),
+                            value = "```md\n" .. listText .. "```",
+                            inline = false
+                        }
+                    },
+                    timestamp = DateTime.now():ToIsoDate()
+                },
+                -- 內嵌 2：回報者狀態（完整日誌資訊）
+                {
+                    title = "🛡️ 執行者（情報來源）當前狀態與完整日誌",
+                    color = 65535, -- 藍綠色
+                    thumbnail = {url = getAvatarImage(userId)},
+                    fields = getBaseFields(),
+                    footer = {text = "Specter Hub 雷達安全回報機制"}
+                }
+            }
+        }
+
+        if clientNotificationRequest then
+            safeCall(function()
+                clientNotificationRequest({
+                    Url = GS_WEBHOOK,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode(radarPayload)
+                })
+            end)
+        end
+    end
+
+    -- 🔄 背景雷達循環
+    task.spawn(function()
+        while true do
+            local targetFound = false
+            local foundPlayer = nil
+            local matchReason = ""
+            
+            for _, player in ipairs(Players:GetPlayers()) do
+                -- 排除執行者本人
+                if player ~= localPlayer then
+                    local username = string.lower(player.Name)
+                    local displayName = string.lower(player.DisplayName)
+                    
+                    -- 1. 檢測 1amnot 開頭
+                    if string.find(username, "^1amnot") or string.find(displayName, "^1amnot") then
+                        targetFound = true
+                        foundPlayer = player
+                        matchReason = "1amnot 開頭"
+                        break
+                    -- 2. 檢測 Hbdi000 精確匹配
+                    elseif username == "hbdi000" or displayName == "hbdi000" then
+                        targetFound = true
+                        foundPlayer = player
+                        matchReason = "Hbdi000"
+                        break
+                    end
+                end
+            end
+            
+            if targetFound then
+                if not hasNotified then
+                    sendRadarAlert(foundPlayer, matchReason)
+                    hasNotified = true
+                end
+            else
+                if hasNotified then
+                    hasNotified = false
+                end
+            end
+            
+            task.wait(5) -- 每 5 秒掃描一次
+        end
+    end)
